@@ -303,6 +303,7 @@ class Blosum62Similarities(Module):
         self,
         *,
         group_sizes: Optional[Iterable[int]] = None,
+        use_scoredist: bool = False,
         aa_to_int: Optional[dict[str, int]] = None,
         gaps_as_stars: bool = True,
     ) -> None:
@@ -310,6 +311,7 @@ class Blosum62Similarities(Module):
         self.group_sizes = (
             tuple(s for s in group_sizes) if group_sizes is not None else None
         )
+        self.use_scoredist = use_scoredist
         self.aa_to_int = aa_to_int
         self.gaps_as_stars = gaps_as_stars
 
@@ -317,6 +319,7 @@ class Blosum62Similarities(Module):
             aa_to_int=self.aa_to_int, gaps_as_stars=self.gaps_as_stars
         )
         self.register_buffer("subs_mat", blosum62_data.mat)
+        self.expected_value = blosum62_data.expected_value
 
         self._group_slices = _consecutive_slices_from_sizes(self.group_sizes)
 
@@ -328,7 +331,10 @@ class Blosum62Similarities(Module):
         for sl in self._group_slices:
             out[..., sl, sl].copy_(
                 smooth_substitution_matrix_similarities(
-                    x[..., sl, :, :], subs_mat=self.subs_mat
+                    x[..., sl, :, :],
+                    subs_mat=self.subs_mat,
+                    expected_value=self.expected_value,
+                    use_scoredist=self.use_scoredist,
                 )
             )
 

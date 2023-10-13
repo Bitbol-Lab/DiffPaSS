@@ -21,7 +21,24 @@ import torch
 
 # %% ../nbs/base.ipynb 3
 class DiffPASSMixin:
+    allowed_permutation_cfg_keys = {
+        "tau",
+        "n_iter",
+        "noise",
+        "noise_factor",
+        "noise_std",
+    }
+    allowed_information_measures = {"MI", "TwoBodyEntropy"}
+    allowed_similarity_kinds = {"Hamming", "Blosum62"}
+    allowed_similarities_cfg_keys = {
+        "Hamming": {"use_dot", "p"},
+        "Blosum62": {"aa_to_int", "gaps_as_stars"},
+    }
+    allowed_reciprocal_best_hits_cfg_keys = {"tau"}
+
     group_sizes: Iterable[int]
+    information_measure: str
+    similarity_kind: str
 
     @staticmethod
     def reduce_num_tokens(x: torch.Tensor) -> torch.Tensor:
@@ -31,6 +48,42 @@ class DiffPASSMixin:
             used_tokens = used_tokens.any(-2)
 
         return x[..., used_tokens]
+
+    def validate_permutation_cfg(self, permutation_cfg: dict) -> None:
+        if not set(permutation_cfg).issubset(self.allowed_permutation_cfg_keys):
+            raise ValueError(
+                f"Invalid keys in `permutation_cfg`: {set(permutation_cfg) - self.allowed_permutation_cfg_keys}"
+            )
+
+    def validate_information_measure(self, information_measure: str) -> None:
+        if information_measure not in self.allowed_information_measures:
+            raise ValueError(
+                f"Invalid information measure: {self.information_measure}. "
+                f"Allowed values are: {self.allowed_information_measures}"
+            )
+
+    def validate_similarity_kind(self, similarity_kind: str) -> None:
+        if similarity_kind not in self.allowed_similarity_kinds:
+            raise ValueError(
+                f"Invalid similarity kind: {self.similarity_kind}. "
+                f"Allowed values are: {self.allowed_similarity_kinds}"
+            )
+
+    def validate_similarities_cfg(self, similarities_cfg: dict) -> None:
+        if not set(similarities_cfg).issubset(
+            self.allowed_similarities_cfg_keys[self.similarity_kind]
+        ):
+            raise ValueError(
+                f"Invalid keys in `similarities_cfg`: {set(similarities_cfg) - self.allowed_similarities_cfg_keys[self.similarity_kind]}"
+            )
+
+    def validate_reciprocal_best_hits_cfg(self, reciprocal_best_hits_cfg: dict) -> None:
+        if not set(reciprocal_best_hits_cfg).issubset(
+            self.allowed_reciprocal_best_hits_cfg_keys
+        ):
+            raise ValueError(
+                f"Invalid keys in `reciprocal_best_hits_cfg`: {set(reciprocal_best_hits_cfg) - self.allowed_reciprocal_best_hits_cfg_keys}"
+            )
 
     def validate_inputs(
         self, x: torch.Tensor, y: torch.Tensor, check_same_alphabet_size: bool = False

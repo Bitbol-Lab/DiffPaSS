@@ -88,17 +88,6 @@ class DiffPASSResults:
 
 # %% ../nbs/train.ipynb 6
 class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
-    allowed_permutation_cfg_keys = {
-        "tau",
-        "n_iter",
-        "noise",
-        "noise_factor",
-        "noise_std",
-    }
-    allowed_information_measures = {"MI", "TwoBodyEntropy"}
-    allowed_hamming_similarities_cfg_keys = {"use_dot", "p"}
-    allowed_reciprocal_best_hits_cfg_keys = {"tau"}
-
     def __init__(
         self,
         group_sizes: Iterable[int],
@@ -106,7 +95,8 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         loss_weights: Optional[dict[str, Union[float, torch.Tensor]]] = None,
         permutation_cfg: Optional[dict[str, Any]] = None,
         information_measure: Literal["MI", "TwoBodyEntropy"] = "TwoBodyEntropy",
-        hamming_similarities_cfg: Optional[dict[str, Any]] = None,
+        similarity_kind: Literal["Hamming", "Blosum62"] = "Hamming",
+        similarities_cfg: Optional[dict[str, Any]] = None,
         reciprocal_best_hits_cfg: Optional[dict[str, Any]] = None,
         inter_group_loss_score_fn: Optional[callable] = None,
     ):
@@ -116,7 +106,8 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         self.loss_weights = loss_weights
         self.permutation_cfg = permutation_cfg
         self.information_measure = information_measure
-        self.hamming_similarities_cfg = hamming_similarities_cfg
+        self.similarity_kind = similarity_kind
+        self.similarities_cfg = similarities_cfg
         self.reciprocal_best_hits_cfg = reciprocal_best_hits_cfg
         self.inter_group_loss_score_fn = inter_group_loss_score_fn
 
@@ -126,7 +117,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         if permutation_cfg is None:
             permutation_cfg = {}
         else:
-            assert set(permutation_cfg).issubset(self.allowed_permutation_cfg_keys)
+            self.validate_permutation_cfg(permutation_cfg)
             permutation_cfg = deepcopy(permutation_cfg)
             _dim_in_ensemble = self._adjust_cfg_and_ensemble_shape(
                 ensemble_shape=ensemble_shape,
@@ -136,24 +127,21 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             )
         self.effective_permutation_cfg_ = permutation_cfg
 
-        assert self.information_measure in self.allowed_information_measures
+        self.validate_information_measure(information_measure)
         self.loss_weights_keys = {self.information_measure, "ReciprocalBestHits"}
 
-        if hamming_similarities_cfg is None:
-            hamming_similarities_cfg = {}
+        self.validate_similarity_kind(similarity_kind)
+        if similarities_cfg is None:
+            similarities_cfg = {}
         else:
-            assert set(hamming_similarities_cfg).issubset(
-                self.allowed_hamming_similarities_cfg_keys
-            )
-            hamming_similarities_cfg = deepcopy(hamming_similarities_cfg)
-        self.effective_hamming_similarities_cfg_ = hamming_similarities_cfg
+            self.validate_similarities_cfg(similarities_cfg)
+            similarities_cfg = deepcopy(similarities_cfg)
+        self.effective_similarities_cfg_ = similarities_cfg
 
         if reciprocal_best_hits_cfg is None:
             reciprocal_best_hits_cfg = {}
         else:
-            assert set(reciprocal_best_hits_cfg).issubset(
-                self.allowed_reciprocal_best_hits_cfg_keys
-            )
+            self.validate_reciprocal_best_hits_cfg(reciprocal_best_hits_cfg)
             reciprocal_best_hits_cfg = deepcopy(reciprocal_best_hits_cfg)
             _dim_in_ensemble = self._adjust_cfg_and_ensemble_shape(
                 ensemble_shape=ensemble_shape,
@@ -190,16 +178,14 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             self.information_loss = TwoBodyEntropyLoss()
         elif self.information_measure == "MI":
             self.information_loss = MILoss()
-        else:
-            # FIXME Redundant check
-            raise ValueError(
-                f"``information_measure`` must be one of {self.allowed_information_measures}."
-            )
-
         self.information_loss.register_buffer(
             "weight", loss_weights[self.information_measure]
         )
-        self.hamming_similarities = HammingSimilarities(**hamming_similarities_cfg)
+
+        if similarity_kind == "Blosum62":
+            self.similarities = Blosum62Similarities(**similarities_cfg)
+        elif similarity_kind == "Hamming":
+            self.similarities = HammingSimilarities(**similarities_cfg)
         self.reciprocal_best_hits = ReciprocalBestHits(
             group_sizes=self.group_sizes,
             ensemble_shape=ensemble_shape,
@@ -301,9 +287,9 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
     def _precompute_rbh(self, x: torch.Tensor, y: torch.Tensor) -> None:
         # Temporarily switch to hard RBH
         self.reciprocal_best_hits.hard_()
-        similarities_x = self.hamming_similarities(x)
+        similarities_x = self.similarities(x)
         self._rbh_hard_x = self.reciprocal_best_hits(similarities_x)
-        similarities_y = self.hamming_similarities(y)
+        similarities_y = self.similarities(y)
         self._rbh_hard_y = self.reciprocal_best_hits(similarities_y)
 
         # Revert to soft (default) RBH
@@ -333,7 +319,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         if mode == "soft":
             if x_perm_hard is not None:
                 x_perm = (x_perm_hard - x_perm).detach() + x_perm
-            similarities_x = self.hamming_similarities(x_perm)
+            similarities_x = self.similarities(x_perm)
             rbh_x = self.reciprocal_best_hits(similarities_x)
         else:
             rbh_x = apply_hard_permutation_batch_to_similarity(
@@ -366,7 +352,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         optimizer_name: Optional[str] = "SGD",
         optimizer_kwargs: Optional[dict[str, Any]] = None,
         mean_centering: bool = True,
-        hamming_gradient_bypass: bool = False,
+        similarity_gradient_bypass: bool = False,
     ) -> DiffPASSResults:
         # Validate inputs
         self.validate_inputs(x, y)
@@ -427,7 +413,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                     epoch_results = self(x, y)
                     loss_info = epoch_results["loss_info"]
                     loss_rbh = epoch_results["loss_rbh"]
-                    if hamming_gradient_bypass:
+                    if similarity_gradient_bypass:
                         x_perm_hard = epoch_results["x_perm"]
                     perms = epoch_results["perms"]
                     results.log_alphas.append(
