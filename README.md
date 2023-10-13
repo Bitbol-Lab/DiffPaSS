@@ -25,7 +25,7 @@ python -m pip install -e .
 ## How to use
 
 See the
-[`_example_prokaryotic.ipynb`](https://github.com/Bitbol-Lab/DiffPALM/blob/main/nbs/_example_prokaryotic.ipynb)
+[`_example_prokaryotic.ipynb`](https://github.com/Bitbol-Lab/DiffPASS/blob/main/nbs/_example_prokaryotic.ipynb)
 notebook for an example of paired MSA optimization in the case of
 well-known prokaryotic datasets, for which ground truth matchings are
 given by genome proximity.
