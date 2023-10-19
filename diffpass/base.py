@@ -32,7 +32,7 @@ class DiffPASSMixin:
     allowed_similarity_kinds = {"Hamming", "Blosum62"}
     allowed_similarities_cfg_keys = {
         "Hamming": {"use_dot", "p"},
-        "Blosum62": {"aa_to_int", "gaps_as_stars"},
+        "Blosum62": {"use_scoredist", "aa_to_int", "gaps_as_stars"},
     }
     allowed_reciprocal_best_hits_cfg_keys = {"tau"}
 
