@@ -125,13 +125,13 @@ class GeneralizedPermutation(Module, EnsembleMixin):
                     )
             for idx, (s, fm) in enumerate(zip(self.group_sizes, fixed_matchings)):
                 mask = torch.ones(*self.ensemble_shape, s, s, dtype=torch.bool)
-                for i, j in fm:
-                    mask[..., j, :] = False
-                    mask[..., :, i] = False
+                if fm:
+                    for i, j in fm:
+                        mask[..., j, :] = False
+                        mask[..., :, i] = False
                 self.register_buffer(f"_not_fixed_masks_{idx}", mask)
             self._fixed_matchings_zip = [
-                tuple(zip(*fm)) if fm is not None else ((), ())
-                for fm in fixed_matchings
+                tuple(zip(*fm)) if fm else ((), ()) for fm in fixed_matchings
             ]
 
     @property
