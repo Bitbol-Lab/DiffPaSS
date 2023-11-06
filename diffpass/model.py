@@ -78,10 +78,12 @@ class GeneralizedPermutation(Module, EnsembleMixin):
         # as "batch" dimensions.
         self.nonfixed_group_sizes_ = (
             tuple(
-                s - len(fm) if fm is not None else s
-                for s, fm in zip(self.group_sizes, self.fixed_matchings)
+                s - num_efm
+                for s, num_efm in zip(
+                    self.group_sizes, self._effective_number_fixed_matchings
+                )
             )
-            if self.fixed_matchings is not None
+            if self.fixed_matchings
             else self.group_sizes
         )
         self.log_alphas = ParameterList(
@@ -105,14 +107,14 @@ class GeneralizedPermutation(Module, EnsembleMixin):
     def _validate_fixed_matchings(
         self, fixed_matchings: Optional[Sequence[Sequence[Sequence[int]]]] = None
     ) -> None:
-        if fixed_matchings is not None:
+        if fixed_matchings:
             if len(fixed_matchings) != len(self.group_sizes):
                 raise ValueError(
                     "If `fixed_matchings` is provided, it must have the same length as "
                     "`group_sizes`."
                 )
             for s, fm in zip(self.group_sizes, fixed_matchings):
-                if fm is None:
+                if not fm:
                     continue
                 if any([len(p) != 2 for p in fm]):
                     raise ValueError(
@@ -123,16 +125,23 @@ class GeneralizedPermutation(Module, EnsembleMixin):
                         "All fixed matchings must be within the range of the corresponding "
                         "group size."
                     )
+            self._effective_number_fixed_matchings = []
+            self._fixed_matchings_zip = []
             for idx, (s, fm) in enumerate(zip(self.group_sizes, fixed_matchings)):
-                mask = torch.ones(*self.ensemble_shape, s, s, dtype=torch.bool)
-                if fm:
-                    for i, j in fm:
+                _fm = [] if fm is None else fm
+                num_fm = len(_fm)
+                is_not_fully_fixed = s - num_fm > 1
+                num_efm = s - (s - num_fm) * is_not_fully_fixed
+                self._effective_number_fixed_matchings.append(num_efm)
+                if not is_not_fully_fixed:
+                    mask = torch.zeros(*self.ensemble_shape, s, s, dtype=torch.bool)
+                else:
+                    mask = torch.ones(*self.ensemble_shape, s, s, dtype=torch.bool)
+                    for i, j in _fm:
                         mask[..., j, :] = False
                         mask[..., :, i] = False
                 self.register_buffer(f"_not_fixed_masks_{idx}", mask)
-            self._fixed_matchings_zip = [
-                tuple(zip(*fm)) if fm else ((), ()) for fm in fixed_matchings
-            ]
+                self._fixed_matchings_zip.append(tuple(zip(*_fm)) if _fm else ((), ()))
 
     @property
     def _not_fixed_masks(self) -> list[torch.Tensor]:
@@ -154,7 +163,7 @@ class GeneralizedPermutation(Module, EnsembleMixin):
         _mats_fn_no_fixed = getattr(self, f"_{self._mode}_mats")
         self._mats_fn = (
             _mats_fn_no_fixed
-            if self.fixed_matchings is None
+            if not self.fixed_matchings
             else self._impl_fixed_matchings(_mats_fn_no_fixed)
         )
 

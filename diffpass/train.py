@@ -353,6 +353,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         optimizer_kwargs: Optional[dict[str, Any]] = None,
         mean_centering: bool = True,
         similarity_gradient_bypass: bool = False,
+        show_pbar: bool = True,
     ) -> DiffPASSResults:
         # Validate inputs
         self.validate_inputs(x, y)
@@ -400,13 +401,18 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         )
         self.optimizer_ = optimizer_cls(self.parameters(), **optimizer_kwargs)
 
+        # Progress bar
+        pbar = range(epochs + 1)
+        if show_pbar:
+            pbar = tqdm(pbar)
+
         # ------------------------------------------------------------------------------------------
         ## Gradient descent
         # ------------------------------------------------------------------------------------------
         x_perm_hard = None
         with torch.set_grad_enabled(True):
             self.optimizer_.zero_grad()
-            for i in tqdm(range(epochs + 1)):
+            for i in pbar:
                 # Hard pass
                 self.hard_()
                 with torch.no_grad():
