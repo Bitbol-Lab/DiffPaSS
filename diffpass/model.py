@@ -126,22 +126,31 @@ class GeneralizedPermutation(Module, EnsembleMixin):
                         "group size."
                     )
             self._effective_number_fixed_matchings = []
-            self._fixed_matchings_zip = []
+            self._effective_fixed_matchings_zip = []
             for idx, (s, fm) in enumerate(zip(self.group_sizes, fixed_matchings)):
-                _fm = [] if fm is None else fm
-                num_fm = len(_fm)
-                is_not_fully_fixed = s - num_fm > 1
-                num_efm = s - (s - num_fm) * is_not_fully_fixed
+                if fm:
+                    num_fm = len(fm)
+                    fm_zip = list(zip(*fm))
+                else:
+                    num_fm = 0
+                    fm_zip = ((), ())
+                complement = s - num_fm  # Effectively fully fixed when complement <= 1
+                is_fully_fixed = complement <= 1
+                num_efm = s - (s - num_fm) * (not is_fully_fixed)
                 self._effective_number_fixed_matchings.append(num_efm)
-                if not is_not_fully_fixed:
+                if is_fully_fixed:
                     mask = torch.zeros(*self.ensemble_shape, s, s, dtype=torch.bool)
+                    if complement:
+                        possible_idxs = set(range(s))
+                        fm_zip[0] += tuple((possible_idxs - set(fm_zip[0])))
+                        fm_zip[1] += tuple((possible_idxs - set(fm_zip[1])))
                 else:
                     mask = torch.ones(*self.ensemble_shape, s, s, dtype=torch.bool)
-                    for i, j in _fm:
+                    for i, j in fm:
                         mask[..., j, :] = False
                         mask[..., :, i] = False
                 self.register_buffer(f"_not_fixed_masks_{idx}", mask)
-                self._fixed_matchings_zip.append(tuple(zip(*_fm)) if _fm else ((), ()))
+                self._effective_fixed_matchings_zip.append(fm_zip)
 
     @property
     def _not_fixed_masks(self) -> list[torch.Tensor]:
@@ -178,7 +187,10 @@ class GeneralizedPermutation(Module, EnsembleMixin):
 
         def wrapper(gen: Iterator[torch.Tensor]) -> Iterator[torch.Tensor]:
             for s, mat, (row_group, col_group), mask in zip(
-                self.group_sizes, gen, self._fixed_matchings_zip, self._not_fixed_masks
+                self.group_sizes,
+                gen,
+                self._effective_fixed_matchings_zip,
+                self._not_fixed_masks,
             ):
                 mat_all = torch.zeros(
                     *self.ensemble_shape,
