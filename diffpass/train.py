@@ -84,7 +84,7 @@ class DiffPASSResults:
     soft_losses: dict[str, list[torch.Tensor]]
     # Losses with identity perm
     hard_losses_identity_perm: dict[str, Optional[float]]
-    soft_losses_identity_perm: dict[str, Optional[float]]
+    soft_losses_identity_perm: Optional[dict[str, Optional[float]]] = None
 
 # %% ../nbs/train.ipynb 6
 class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
