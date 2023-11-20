@@ -288,15 +288,15 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         # Temporarily switch to hard RBH
         self.reciprocal_best_hits.hard_()
         similarities_x = self.similarities(x)
-        self._rbh_hard_x = self.reciprocal_best_hits(similarities_x)
+        self.register_buffer("_rbh_hard_x", self.reciprocal_best_hits(similarities_x))
         similarities_y = self.similarities(y)
-        self._rbh_hard_y = self.reciprocal_best_hits(similarities_y)
+        self.register_buffer("_rbh_hard_y", self.reciprocal_best_hits(similarities_y))
 
         # Revert to soft (default) RBH
         self.reciprocal_best_hits.soft_()
-        self._rbh_soft_x = self.reciprocal_best_hits(similarities_x)
+        self.register_buffer("_rbh_soft_x", self.reciprocal_best_hits(similarities_x))
         similarities_y = self.reciprocal_best_hits.prepare_fixed(similarities_y)
-        self._rbh_soft_y = self.reciprocal_best_hits(similarities_y)
+        self.register_buffer("_rbh_soft_y", self.reciprocal_best_hits(similarities_y))
 
     def forward(
         self,
@@ -343,20 +343,12 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         self.permutation.hard_()
         self.reciprocal_best_hits.hard_()
 
-    def fit(
-        self,
-        x,
-        y,
-        *,
-        epochs: int = 1,
-        optimizer_name: Optional[str] = "SGD",
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
-        mean_centering: bool = True,
-        similarity_gradient_bypass: bool = False,
-        show_pbar: bool = True,
-    ) -> DiffPASSResults:
+    def _prepare_fit(self, x: torch.Tensor, y: torch.Tensor) -> DiffPASSResults:
         # Validate inputs
         self.validate_inputs(x, y)
+
+        # Precompute matrices of reciprocal best hits
+        self._precompute_rbh(x, y)
 
         # Initialize DiffPassResults object
         results = DiffPASSResults(
@@ -375,9 +367,6 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             },
         )
 
-        # Precompute matrices of reciprocal best hits
-        self._precompute_rbh(x, y)
-
         # Compute hard losses with identity permutation
         self.hard_()
         with torch.no_grad():
@@ -394,6 +383,22 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                 self.inter_group_loss(self._rbh_soft_x, self._rbh_soft_y)
             )
 
+        return results
+
+    def _fit(
+        self,
+        x: torch.Tensor,
+        y: torch.Tensor,
+        results: DiffPASSResults,
+        *,
+        epochs: int = 1,
+        optimizer_name: Optional[str] = "SGD",
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        mean_centering: bool = True,
+        similarity_gradient_bypass: bool = False,
+        show_pbar: bool = True,
+        compute_final_soft: bool = True,
+    ) -> DiffPASSResults:
         # Initialize optimizer
         optimizer_cls = getattr(torch.optim, optimizer_name)
         optimizer_kwargs = (
@@ -437,22 +442,25 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                     results.hard_losses["ReciprocalBestHits"].append(_dcc(loss_rbh))
 
                 # Soft pass
-                self.soft_()
-                epoch_results = self(x, y, x_perm_hard=x_perm_hard)
-                loss_info = epoch_results["loss_info"]
-                loss_rbh = epoch_results["loss_rbh"]
-                perms = epoch_results["perms"]
-                results.soft_perms.append(
-                    [_dcc(perms_this_group) for perms_this_group in perms]
-                )
-                results.soft_losses[self.information_measure].append(_dcc(loss_info))
-                results.soft_losses["ReciprocalBestHits"].append(_dcc(loss_rbh))
+                if i < epochs or compute_final_soft:
+                    self.soft_()
+                    epoch_results = self(x, y, x_perm_hard=x_perm_hard)
+                    loss_info = epoch_results["loss_info"]
+                    loss_rbh = epoch_results["loss_rbh"]
+                    perms = epoch_results["perms"]
+                    results.soft_perms.append(
+                        [_dcc(perms_this_group) for perms_this_group in perms]
+                    )
+                    results.soft_losses[self.information_measure].append(
+                        _dcc(loss_info)
+                    )
+                    results.soft_losses["ReciprocalBestHits"].append(_dcc(loss_rbh))
 
-                loss = (
-                    self.information_loss.weight * loss_info
-                    + self.reciprocal_best_hits.weight * loss_rbh
-                ).sum()
-                loss.backward()
+                    loss = (
+                        self.information_loss.weight * loss_info
+                        + self.reciprocal_best_hits.weight * loss_rbh
+                    ).sum()
+                    loss.backward()
                 if i < epochs:
                     self.optimizer_.step()
                     self.optimizer_.zero_grad()
@@ -462,5 +470,34 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                                 log_alpha[...] -= log_alpha.mean(
                                     dim=(-1, -2), keepdim=True
                                 )
+
+        return results
+
+    def fit(
+        self,
+        x: torch.Tensor,
+        y: torch.Tensor,
+        *,
+        epochs: int = 1,
+        optimizer_name: Optional[str] = "SGD",
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        mean_centering: bool = True,
+        similarity_gradient_bypass: bool = False,
+        show_pbar: bool = True,
+        compute_final_soft: bool = True,
+    ) -> DiffPASSResults:
+        results = self._prepare_fit(x, y)
+        results = self._fit(
+            x,
+            y,
+            results,
+            epochs=epochs,
+            optimizer_name=optimizer_name,
+            optimizer_kwargs=optimizer_kwargs,
+            mean_centering=mean_centering,
+            similarity_gradient_bypass=similarity_gradient_bypass,
+            show_pbar=show_pbar,
+            compute_final_soft=compute_final_soft,
+        )
 
         return results
