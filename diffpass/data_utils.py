@@ -149,6 +149,7 @@ def generate_dataset(parameters, msa_data, get_species_name, return_species=Fals
 def msa_tokenizer(
     msa: list[tuple[str, str]],
     aa_to_int: Optional[dict[str, int]] = None,
+    device: Optional[torch.device] = None,
 ) -> torch.Tensor:
     """
     Function that given an MSA (seen as a list of tuples) tokenizes it using the MSA Transformer
@@ -160,14 +161,14 @@ def msa_tokenizer(
     tokenized_msa = []
     for header, seq in msa:
         tokenized_msa.append([aa_to_int[c] for c in seq])
-    tokenized_msa = torch.tensor(tokenized_msa)
+    tokenized_msa = torch.tensor(tokenized_msa, device=device)
 
     tokenized_msa = torch.nn.functional.one_hot(tokenized_msa).to(torch.float32)
 
     return tokenized_msa
 
 
-def dataset_tokenizer(dataset):
+def dataset_tokenizer(dataset, device: Optional[torch.device] = None):
     """
     Function that given a dictionary `dataset` of MSAs (initial MSA, blocks, positive examples) tokenizes
     each MSA and return them in a dictionary with the same keys.
@@ -177,7 +178,8 @@ def dataset_tokenizer(dataset):
     with torch.set_grad_enabled(False):
         # Tokenize initial MSA
         dataset_tokens["msa"] = {
-            key: msa_tokenizer(dataset["msa"][key]) for key in dataset["msa"].keys()
+            key: msa_tokenizer(dataset["msa"][key], device=device)
+            for key in dataset["msa"].keys()
         }
         # Tokenize MSAs of positive examples and concatenate together the correct pairs, returns None
         # if there are no positive examples
@@ -185,7 +187,7 @@ def dataset_tokenizer(dataset):
             dataset_tokens["positive_examples"] = None
         else:
             tmp_pos_examples = {
-                key: msa_tokenizer(dataset["positive_examples"][key])
+                key: msa_tokenizer(dataset["positive_examples"][key], device=device)
                 for key in dataset["positive_examples"].keys()
             }
             dataset_tokens["positive_examples"] = torch.cat(
