@@ -203,5 +203,7 @@ d = { 'settings': { 'branch': 'main',
                                 'diffpass.train._dcc': ('train.html#_dcc', 'diffpass/train.py'),
                                 'diffpass.train.apply_hard_permutation_batch_to_similarity': ( 'train.html#apply_hard_permutation_batch_to_similarity',
                                                                                                'diffpass/train.py'),
+                                'diffpass.train.compute_num_correct_matchings': ( 'train.html#compute_num_correct_matchings',
+                                                                                  'diffpass/train.py'),
                                 'diffpass.train.global_argmax_from_group_argmaxes': ( 'train.html#global_argmax_from_group_argmaxes',
                                                                                       'diffpass/train.py')}}}

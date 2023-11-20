@@ -2,7 +2,7 @@
 
 # %% auto 0
 __all__ = ['global_argmax_from_group_argmaxes', 'apply_hard_permutation_batch_to_similarity', 'DiffPASSResults', 'Information',
-           'InformationAndReciprocalBestHits', 'InformationAndMirrortree']
+           'InformationAndReciprocalBestHits', 'InformationAndMirrortree', 'compute_num_correct_matchings']
 
 # %% ../nbs/train.ipynb 2
 # Stdlib imports
@@ -1095,3 +1095,52 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         )
 
         return results
+
+# %% ../nbs/train.ipynb 9
+def compute_num_correct_matchings(
+    results: DiffPASSResults,
+    *,
+    index_based: bool,
+    x_seqs: Optional[list[list[tuple]]] = None,
+    y_seqs: Optional[list[list[tuple]]] = None,
+    xy_seqs: Optional[list[dict[str, int]]] = None,
+) -> list[int]:
+    """Compute the number of matchings that are 'correct' at each step of the optimization.
+    'Correct' means that they are present in the original paired MSAs, assumed to be the
+    ground truth.
+
+    If `index_based` is True, then the matchings are assumed to be represented as range indices
+    for faster computation, and the `x_seqs`, `y_seqs`, and `xy_seqs` arguments are ignored.
+    """
+    correct = []
+    if index_based:
+        for perms in results.hard_perms:
+            correct_this_step = 0
+            for perm_this_group in perms:
+                n_seqs_this_group = perm_this_group.shape[-1]
+                correct_this_group = perm_this_group == torch.arange(n_seqs_this_group)
+                correct_this_group = correct_this_group.sum().item()
+                correct_this_step += correct_this_group
+            correct.append(correct_this_step)
+    else:
+        for perms in results.hard_perms:
+            correct_this_perm = 0
+            for (
+                perm_this_group,
+                x_seqs_this_group,
+                y_seqs_this_group,
+                xy_seqs_this_group,
+            ) in zip(perms, x_seqs, y_seqs, xy_seqs):
+                _xy_seqs_this_group = xy_seqs_this_group.copy()
+                x_seqs_this_group_perm = [
+                    x_seqs_this_group[idx] for idx in perm_this_group
+                ]
+                for x_seq, y_seq in zip(x_seqs_this_group_perm, y_seqs_this_group):
+                    xy_key = f"{x_seq}:{y_seq}"
+                    if _xy_seqs_this_group.get(xy_key, 0) > 0:
+                        _xy_seqs_this_group[xy_key] -= 1
+                        correct_this_perm += 1
+
+            correct.append(correct_this_perm)
+
+    return correct
