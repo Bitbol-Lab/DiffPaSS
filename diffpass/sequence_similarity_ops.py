@@ -2,7 +2,7 @@
 
 # %% auto 0
 __all__ = ['smooth_hamming_similarities_cdist', 'smooth_hamming_similarities_dot', 'smooth_substitution_matrix_similarities',
-           'soft_reciprocal_best_hits', 'hard_reciprocal_best_hits']
+           'soft_best_hits', 'hard_best_hits']
 
 # %% ../nbs/sequence_similarity_ops.ipynb 3
 # Stdlib imports
@@ -63,9 +63,10 @@ def _reciprocate_best_hits(best_hits: torch.Tensor) -> torch.Tensor:
     return best_hits * best_hits.mT
 
 
-def soft_reciprocal_best_hits(
+def soft_best_hits(
     similarities: torch.Tensor,
     *,
+    reciprocal: bool = False,
     group_slices: Sequence[slice],
     tau: Union[float, torch.Tensor] = 0.1,
 ) -> torch.Tensor:
@@ -75,14 +76,16 @@ def soft_reciprocal_best_hits(
     for sl in group_slices:
         best_hits[..., sl].copy_(softmax(similarities[..., sl] / tau, dim=-1))
 
-    reciprocal_best_hits = _reciprocate_best_hits(best_hits)
+    if reciprocal:
+        best_hits = _reciprocate_best_hits(best_hits)
 
-    return reciprocal_best_hits
+    return best_hits
 
 
-def hard_reciprocal_best_hits(
+def hard_best_hits(
     similarities: torch.Tensor,
     *,
+    reciprocal: bool = False,
     group_slices: Sequence[slice],
 ) -> torch.Tensor:
     """Hard reciprocal best hits graphs from pairwise similarities.
@@ -92,6 +95,7 @@ def hard_reciprocal_best_hits(
         argmax = torch.argmax(similarities[..., sl], dim=-1, keepdim=True)
         best_hits[..., sl].scatter_(-1, argmax, 1.0)
 
-    reciprocal_best_hits = _reciprocate_best_hits(best_hits)
+    if reciprocal:
+        best_hits = _reciprocate_best_hits(best_hits)
 
-    return reciprocal_best_hits
+    return best_hits

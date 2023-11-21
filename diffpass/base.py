@@ -8,16 +8,8 @@ __all__ = ['DiffPASSMixin', 'scalar_or_1d_tensor', 'EnsembleMixin']
 from collections.abc import Iterable, Sequence
 from typing import Optional, Union, Any
 
-# NumPy
-# import numpy as np
-
 # PyTorch
 import torch
-
-# PLOTTING
-# from matplotlib import colormaps as cm
-# import matplotlib.pyplot as plt
-# from matplotlib.colors import CenteredNorm
 
 # %% ../nbs/base.ipynb 3
 class DiffPASSMixin:
@@ -34,7 +26,7 @@ class DiffPASSMixin:
         "Hamming": {"use_dot", "p"},
         "Blosum62": {"use_scoredist", "aa_to_int", "gaps_as_stars"},
     }
-    allowed_reciprocal_best_hits_cfg_keys = {"tau"}
+    allowed_best_hits_cfg_keys = {"tau", "reciprocal"}
 
     group_sizes: Iterable[int]
     information_measure: str
@@ -77,12 +69,10 @@ class DiffPASSMixin:
                 f"Invalid keys in `similarities_cfg`: {set(similarities_cfg) - self.allowed_similarities_cfg_keys[self.similarity_kind]}"
             )
 
-    def validate_reciprocal_best_hits_cfg(self, reciprocal_best_hits_cfg: dict) -> None:
-        if not set(reciprocal_best_hits_cfg).issubset(
-            self.allowed_reciprocal_best_hits_cfg_keys
-        ):
+    def validate_best_hits_cfg(self, best_hits_cfg: dict) -> None:
+        if not set(best_hits_cfg).issubset(self.allowed_best_hits_cfg_keys):
             raise ValueError(
-                f"Invalid keys in `reciprocal_best_hits_cfg`: {set(reciprocal_best_hits_cfg) - self.allowed_reciprocal_best_hits_cfg_keys}"
+                f"Invalid keys in `best_hits_cfg`: {set(best_hits_cfg) - self.allowed_best_hits_cfg_keys}"
             )
 
     def validate_inputs(

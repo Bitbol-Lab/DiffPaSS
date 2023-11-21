@@ -2,7 +2,7 @@
 
 # %% auto 0
 __all__ = ['GeneralizedPermutation', 'EnsembleMatrixApply', 'TwoBodyEntropyLoss', 'MILoss', 'HammingSimilarities',
-           'Blosum62Similarities', 'ReciprocalBestHits', 'InterGroupLoss', 'IntraGroupLoss']
+           'Blosum62Similarities', 'BestHits', 'InterGroupLoss', 'IntraGroupLoss']
 
 # %% ../nbs/model.ipynb 3
 # Stdlib imports
@@ -31,8 +31,8 @@ from diffpass.sequence_similarity_ops import (
     smooth_hamming_similarities_dot,
     smooth_hamming_similarities_cdist,
     smooth_substitution_matrix_similarities,
-    soft_reciprocal_best_hits,
-    hard_reciprocal_best_hits,
+    soft_best_hits,
+    hard_best_hits,
 )
 
 # %% ../nbs/model.ipynb 4
@@ -362,10 +362,11 @@ class Blosum62Similarities(Module):
         return out
 
 # %% ../nbs/model.ipynb 16
-class ReciprocalBestHits(Module, EnsembleMixin):
+class BestHits(Module, EnsembleMixin):
     def __init__(
         self,
         *,
+        reciprocal: bool = True,
         group_sizes: Iterable[int],
         ensemble_shape: Optional[Iterable[int]] = None,
         tau: Union[float, torch.Tensor] = 0.1,
@@ -373,6 +374,7 @@ class ReciprocalBestHits(Module, EnsembleMixin):
         mode: Literal["soft", "hard"] = "soft",
     ) -> None:
         super().__init__()
+        self.reciprocal = reciprocal
         self.group_sizes = tuple(s for s in group_sizes)
         self.ensemble_shape = torch.Size(
             ensemble_shape if ensemble_shape is not None else []
@@ -402,7 +404,7 @@ class ReciprocalBestHits(Module, EnsembleMixin):
         if value not in ["soft", "hard"]:
             raise ValueError("`mode` must be either 'soft' or 'hard'.")
         self._mode = value.lower()
-        self._rbh_fn = getattr(self, f"_{self._mode}_rbh_fn")
+        self._bh_fn = getattr(self, f"_{self._mode}_bh_fn")
 
     def soft_(self) -> None:
         self.mode = "soft"
@@ -410,18 +412,20 @@ class ReciprocalBestHits(Module, EnsembleMixin):
     def hard_(self) -> None:
         self.mode = "hard"
 
-    def _soft_rbh_fn(self, similarities: torch.Tensor) -> torch.Tensor:
-        """Compute soft reciprocal best hits."""
-        return soft_reciprocal_best_hits(
+    def _soft_bh_fn(self, similarities: torch.Tensor) -> torch.Tensor:
+        """Compute soft best hits."""
+        return soft_best_hits(
             similarities,
+            reciprocal=self.reciprocal,
             group_slices=self._group_slices,
             tau=self.tau,
         )
 
-    def _hard_rbh_fn(self, similarities: torch.Tensor) -> torch.Tensor:
-        """Compute hard reciprocal best hits."""
-        return hard_reciprocal_best_hits(
+    def _hard_bh_fn(self, similarities: torch.Tensor) -> torch.Tensor:
+        """Compute hard best hits."""
+        return hard_best_hits(
             similarities,
+            reciprocal=self.reciprocal,
             group_slices=self._group_slices,
         )
 
@@ -431,7 +435,7 @@ class ReciprocalBestHits(Module, EnsembleMixin):
         if self.mode == "soft" and self.tau.ndim:
             if self.tau_dim_in_ensemble is None:
                 raise ValueError(
-                    "If using soft reciprocal best hits and a 1D `tau`, "
+                    "If using soft best hits and a 1D `tau`, "
                     "`tau_dim_in_ensemble` must be provided."
                 )
             n_ensemble_dims = len(self.ensemble_shape)
@@ -452,18 +456,18 @@ class ReciprocalBestHits(Module, EnsembleMixin):
         if self.mode == "soft" and self.tau.ndim:
             if similarities.ndim != len(self.ensemble_shape) + 2:
                 raise ValueError(
-                    f"If using soft reciprocal best hits and a 1D `tau`, the input must have the "
+                    f"If using soft best hits and a 1D `tau`, the input must have the "
                     f"same number of dimensions as the ensemble shape plus 2 = "
                     f"{len(self.ensemble_shape) + 2}, not {similarities.ndim}."
                 )
         else:
             if similarities.ndim != 2:
                 raise ValueError(
-                    f"If using hard reciprocal best hits or a 0D `tau`, "
+                    f"If using hard best hits or a 0D `tau`, "
                     f"the input must have 2 dimensions, not {similarities.ndim}."
                 )
 
-        return self._rbh_fn(similarities)
+        return self._bh_fn(similarities)
 
 # %% ../nbs/model.ipynb 17
 class InterGroupLoss(Module, EnsembleMixin):

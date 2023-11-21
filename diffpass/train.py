@@ -2,7 +2,7 @@
 
 # %% auto 0
 __all__ = ['global_argmax_from_group_argmaxes', 'apply_hard_permutation_batch_to_similarity', 'DiffPASSResults', 'Information',
-           'InformationAndReciprocalBestHits', 'InformationAndMirrortree', 'compute_num_correct_matchings']
+           'InformationAndBestHits', 'InformationAndMirrortree', 'compute_num_correct_matchings']
 
 # %% ../nbs/train.ipynb 2
 # Stdlib imports
@@ -26,7 +26,7 @@ from diffpass.model import (
     TwoBodyEntropyLoss,
     MILoss,
     HammingSimilarities,
-    ReciprocalBestHits,
+    BestHits,
     Blosum62Similarities,
     InterGroupLoss,
     IntraGroupLoss,
@@ -310,7 +310,7 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         return results
 
 # %% ../nbs/train.ipynb 7
-class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
+class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
     def __init__(
         self,
         group_sizes: Iterable[int],
@@ -320,7 +320,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         information_measure: Literal["MI", "TwoBodyEntropy"] = "TwoBodyEntropy",
         similarity_kind: Literal["Hamming", "Blosum62"] = "Hamming",
         similarities_cfg: Optional[dict[str, Any]] = None,
-        reciprocal_best_hits_cfg: Optional[dict[str, Any]] = None,
+        best_hits_cfg: Optional[dict[str, Any]] = None,
         inter_group_loss_score_fn: Optional[callable] = None,
     ):
         super().__init__()
@@ -331,7 +331,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         self.information_measure = information_measure
         self.similarity_kind = similarity_kind
         self.similarities_cfg = similarities_cfg
-        self.reciprocal_best_hits_cfg = reciprocal_best_hits_cfg
+        self.best_hits_cfg = best_hits_cfg
         self.inter_group_loss_score_fn = inter_group_loss_score_fn
 
         ensemble_shape = []
@@ -351,7 +351,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         self.effective_permutation_cfg_ = permutation_cfg
 
         self.validate_information_measure(information_measure)
-        self.loss_weights_keys = {self.information_measure, "ReciprocalBestHits"}
+        self.loss_weights_keys = {self.information_measure, "BestHits"}
 
         self.validate_similarity_kind(similarity_kind)
         if similarities_cfg is None:
@@ -361,18 +361,18 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             similarities_cfg = deepcopy(similarities_cfg)
         self.effective_similarities_cfg_ = similarities_cfg
 
-        if reciprocal_best_hits_cfg is None:
-            reciprocal_best_hits_cfg = {}
+        if best_hits_cfg is None:
+            best_hits_cfg = {}
         else:
-            self.validate_reciprocal_best_hits_cfg(reciprocal_best_hits_cfg)
-            reciprocal_best_hits_cfg = deepcopy(reciprocal_best_hits_cfg)
+            self.validate_best_hits_cfg(best_hits_cfg)
+            best_hits_cfg = deepcopy(best_hits_cfg)
             _dim_in_ensemble = self._adjust_cfg_and_ensemble_shape(
                 ensemble_shape=ensemble_shape,
-                cfg=reciprocal_best_hits_cfg,
+                cfg=best_hits_cfg,
                 param_name="tau",
                 prev_dim_in_ensemble=_dim_in_ensemble,
             )
-        self.effective_reciprocal_best_hits_cfg_ = reciprocal_best_hits_cfg
+        self.effective_best_hits_cfg_ = best_hits_cfg
 
         if loss_weights is not None:
             loss_weights = deepcopy(loss_weights)
@@ -384,7 +384,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         else:
             loss_weights = {
                 self.information_measure: torch.tensor(0.5),
-                "ReciprocalBestHits": torch.tensor(0.5),
+                "BestHits": torch.tensor(0.5),
             }
 
         ensemble_shape = tuple(ensemble_shape)
@@ -409,15 +409,13 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             self.similarities = Blosum62Similarities(**similarities_cfg)
         elif similarity_kind == "Hamming":
             self.similarities = HammingSimilarities(**similarities_cfg)
-        self.reciprocal_best_hits = ReciprocalBestHits(
+        self.best_hits = BestHits(
             group_sizes=self.group_sizes,
             ensemble_shape=ensemble_shape,
             mode="soft",
-            **reciprocal_best_hits_cfg,
+            **best_hits_cfg,
         )
-        self.reciprocal_best_hits.register_buffer(
-            "weight", loss_weights["ReciprocalBestHits"]
-        )
+        self.best_hits.register_buffer("weight", loss_weights["BestHits"])
         self.inter_group_loss = InterGroupLoss(
             group_sizes=self.group_sizes, score_fn=self.inter_group_loss_score_fn
         )
@@ -426,7 +424,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
     def effective_loss_weights_(self) -> dict[str, torch.Tensor]:
         return {
             self.information_measure: self.information_loss.weight,
-            "ReciprocalBestHits": self.reciprocal_best_hits.weight,
+            "BestHits": self.best_hits.weight,
         }
 
     @staticmethod
@@ -467,26 +465,26 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             param=loss_weight_entr,
             param_name=f"``loss_weights['{self.information_measure}']``",
         )
-        loss_weight_rbh = loss_weights["ReciprocalBestHits"]
-        loss_weight_rbh = scalar_or_1d_tensor(
-            param=loss_weight_rbh, param_name="``loss_weights['ReciprocalBestHits']``"
+        loss_weight_bh = loss_weights["BestHits"]
+        loss_weight_bh = scalar_or_1d_tensor(
+            param=loss_weight_bh, param_name="``loss_weights['BestHits']``"
         )
 
-        if loss_weight_entr.ndim == 1 and loss_weight_rbh.ndim == 1:
-            if loss_weight_entr.shape != loss_weight_rbh.shape:
+        if loss_weight_entr.ndim == 1 and loss_weight_bh.ndim == 1:
+            if loss_weight_entr.shape != loss_weight_bh.shape:
                 raise ValueError(
                     f"1D ``loss_weights['{self.information_measure}']`` and 1D "
-                    "``loss_weights['ReciprocalBestHits']`` must have the same shape."
+                    "``loss_weights['BestHits']`` must have the same shape."
                 )
             ensemble_shape += list(loss_weight_entr.shape)
             new_dim_in_ensemble += 1
-        elif loss_weight_entr.ndim == 1 and loss_weight_rbh.ndim == 0:
-            loss_weight_rbh = loss_weight_rbh.repeat(loss_weight_entr.shape[0])
+        elif loss_weight_entr.ndim == 1 and loss_weight_bh.ndim == 0:
+            loss_weight_bh = loss_weight_bh.repeat(loss_weight_entr.shape[0])
             ensemble_shape += list(loss_weight_entr.shape)
             new_dim_in_ensemble += 1
-        elif loss_weight_entr.ndim == 0 and loss_weight_rbh.ndim == 1:
-            loss_weight_entr = loss_weight_entr.repeat(loss_weight_rbh.shape[0])
-            ensemble_shape += list(loss_weight_rbh.shape)
+        elif loss_weight_entr.ndim == 0 and loss_weight_bh.ndim == 1:
+            loss_weight_entr = loss_weight_entr.repeat(loss_weight_bh.shape[0])
+            ensemble_shape += list(loss_weight_bh.shape)
             new_dim_in_ensemble += 1
         loss_weight_entr = self._reshape_ensemble_param(
             param=loss_weight_entr,
@@ -495,31 +493,31 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             n_dims_per_instance=0,
             param_name=f"``loss_weights['{self.information_measure}']``",
         )
-        loss_weight_rbh = self._reshape_ensemble_param(
-            param=loss_weight_rbh,
+        loss_weight_bh = self._reshape_ensemble_param(
+            param=loss_weight_bh,
             ensemble_shape=ensemble_shape,
             dim_in_ensemble=new_dim_in_ensemble,
             n_dims_per_instance=0,
-            param_name="``loss_weights['ReciprocalBestHits']``",
+            param_name="``loss_weights['BestHits']``",
         )
         loss_weights[self.information_measure] = loss_weight_entr
-        loss_weights["ReciprocalBestHits"] = loss_weight_rbh
+        loss_weights["BestHits"] = loss_weight_bh
 
         return new_dim_in_ensemble
 
-    def _precompute_rbh(self, x: torch.Tensor, y: torch.Tensor) -> None:
-        # Temporarily switch to hard RBH
-        self.reciprocal_best_hits.hard_()
+    def _precompute_bh(self, x: torch.Tensor, y: torch.Tensor) -> None:
+        # Temporarily switch to hard BH
+        self.best_hits.hard_()
         similarities_x = self.similarities(x)
-        self.register_buffer("_rbh_hard_x", self.reciprocal_best_hits(similarities_x))
+        self.register_buffer("_bh_hard_x", self.best_hits(similarities_x))
         similarities_y = self.similarities(y)
-        self.register_buffer("_rbh_hard_y", self.reciprocal_best_hits(similarities_y))
+        self.register_buffer("_bh_hard_y", self.best_hits(similarities_y))
 
-        # Revert to soft (default) RBH
-        self.reciprocal_best_hits.soft_()
-        self.register_buffer("_rbh_soft_x", self.reciprocal_best_hits(similarities_x))
-        similarities_y = self.reciprocal_best_hits.prepare_fixed(similarities_y)
-        self.register_buffer("_rbh_soft_y", self.reciprocal_best_hits(similarities_y))
+        # Revert to soft (default) BH
+        self.best_hits.soft_()
+        self.register_buffer("_bh_soft_x", self.best_hits(similarities_x))
+        similarities_y = self.best_hits.prepare_fixed(similarities_y)
+        self.register_buffer("_bh_soft_y", self.best_hits(similarities_y))
 
     def forward(
         self,
@@ -529,7 +527,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         x_perm_hard: Optional[torch.Tensor] = None,
     ) -> dict[str, torch.Tensor]:
         mode = self.permutation.mode
-        assert mode == self.reciprocal_best_hits.mode
+        assert mode == self.best_hits.mode
 
         # Soft or hard permutations (list)
         perms = self.permutation()
@@ -538,55 +536,55 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
         # Two-body entropy portion of the loss
         loss_info = self.information_loss(x_perm, y)
 
-        # Reciprocal best hits portion of the loss, with shortcut for hard permutations
+        # Best hits portion of the loss, with shortcut for hard permutations
         if mode == "soft":
             if x_perm_hard is not None:
                 x_perm = (x_perm_hard - x_perm).detach() + x_perm
             similarities_x = self.similarities(x_perm)
-            rbh_x = self.reciprocal_best_hits(similarities_x)
+            bh_x = self.best_hits(similarities_x)
         else:
-            rbh_x = apply_hard_permutation_batch_to_similarity(
-                x=self._rbh_hard_x, perms=perms
+            bh_x = apply_hard_permutation_batch_to_similarity(
+                x=self._bh_hard_x, perms=perms
             )
         # Ensure comparisons are only hard-hard or soft-soft
-        loss_rbh = self.inter_group_loss(rbh_x, getattr(self, f"_rbh_{mode}_y"))
+        loss_bh = self.inter_group_loss(bh_x, getattr(self, f"_bh_{mode}_y"))
 
         return {
             "perms": perms,
             "x_perm": x_perm,
             "loss_info": loss_info,
-            "loss_rbh": loss_rbh,
+            "loss_bh": loss_bh,
         }
 
     def soft_(self) -> None:
         self.permutation.soft_()
-        self.reciprocal_best_hits.soft_()
+        self.best_hits.soft_()
 
     def hard_(self) -> None:
         self.permutation.hard_()
-        self.reciprocal_best_hits.hard_()
+        self.best_hits.hard_()
 
     def _prepare_fit(self, x: torch.Tensor, y: torch.Tensor) -> DiffPASSResults:
         # Validate inputs
         self.validate_inputs(x, y)
 
-        # Precompute matrices of reciprocal best hits
-        self._precompute_rbh(x, y)
+        # Precompute matrices of best hits
+        self._precompute_bh(x, y)
 
         # Initialize DiffPassResults object
         results = DiffPASSResults(
             log_alphas=[],
             soft_perms=[],
             hard_perms=[],
-            soft_losses={self.information_measure: [], "ReciprocalBestHits": []},
-            hard_losses={self.information_measure: [], "ReciprocalBestHits": []},
+            soft_losses={self.information_measure: [], "BestHits": []},
+            hard_losses={self.information_measure: [], "BestHits": []},
             hard_losses_identity_perm={
                 self.information_measure: None,
-                "ReciprocalBestHits": None,
+                "BestHits": None,
             },
             soft_losses_identity_perm={
                 self.information_measure: None,
-                "ReciprocalBestHits": None,
+                "BestHits": None,
             },
         )
 
@@ -596,14 +594,14 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
             results.hard_losses_identity_perm[
                 self.information_measure
             ] = self.information_loss(x, y).item()
-            results.hard_losses_identity_perm[
-                "ReciprocalBestHits"
-            ] = self.inter_group_loss(self._rbh_hard_x, self._rbh_hard_y).item()
+            results.hard_losses_identity_perm["BestHits"] = self.inter_group_loss(
+                self._bh_hard_x, self._bh_hard_y
+            ).item()
             results.soft_losses_identity_perm[
                 self.information_measure
             ] = results.hard_losses_identity_perm[self.information_measure]
-            results.soft_losses_identity_perm["ReciprocalBestHits"] = _dcc(
-                self.inter_group_loss(self._rbh_soft_x, self._rbh_soft_y)
+            results.soft_losses_identity_perm["BestHits"] = _dcc(
+                self.inter_group_loss(self._bh_soft_x, self._bh_soft_y)
             )
 
         return results
@@ -646,7 +644,7 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                 with torch.no_grad():
                     epoch_results = self(x, y)
                     loss_info = epoch_results["loss_info"]
-                    loss_rbh = epoch_results["loss_rbh"]
+                    loss_bh = epoch_results["loss_bh"]
                     if similarity_gradient_bypass:
                         x_perm_hard = epoch_results["x_perm"]
                     perms = epoch_results["perms"]
@@ -662,14 +660,14 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                     results.hard_losses[self.information_measure].append(
                         _dcc(loss_info)
                     )
-                    results.hard_losses["ReciprocalBestHits"].append(_dcc(loss_rbh))
+                    results.hard_losses["BestHits"].append(_dcc(loss_bh))
 
                 # Soft pass
                 if i < epochs or compute_final_soft:
                     self.soft_()
                     epoch_results = self(x, y, x_perm_hard=x_perm_hard)
                     loss_info = epoch_results["loss_info"]
-                    loss_rbh = epoch_results["loss_rbh"]
+                    loss_bh = epoch_results["loss_bh"]
                     perms = epoch_results["perms"]
                     results.soft_perms.append(
                         [_dcc(perms_this_group) for perms_this_group in perms]
@@ -677,11 +675,11 @@ class InformationAndReciprocalBestHits(Module, EnsembleMixin, DiffPASSMixin):
                     results.soft_losses[self.information_measure].append(
                         _dcc(loss_info)
                     )
-                    results.soft_losses["ReciprocalBestHits"].append(_dcc(loss_rbh))
+                    results.soft_losses["BestHits"].append(_dcc(loss_bh))
 
                     loss = (
                         self.information_loss.weight * loss_info
-                        + self.reciprocal_best_hits.weight * loss_rbh
+                        + self.best_hits.weight * loss_bh
                     ).sum()
                     loss.backward()
                 if i < epochs:
