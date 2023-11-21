@@ -481,11 +481,12 @@ class InterGroupLoss(Module, EnsembleMixin):
         self.group_sizes = tuple(s for s in group_sizes)
         self.score_fn = CosineSimilarity(dim=-1) if score_fn is None else score_fn
 
-        self._group_slices = _consecutive_slices_from_sizes(self.group_sizes)
         diag_blocks_mask = torch.block_diag(
             *[torch.ones((s, s), dtype=torch.bool) for s in self.group_sizes]
         )
-        self._upper_no_diag_blocks_mask = torch.triu(~diag_blocks_mask)
+        self.register_buffer(
+            "_upper_no_diag_blocks_mask", torch.triu(~diag_blocks_mask)
+        )
 
     def forward(
         self, similarities_x: torch.Tensor, similarities_y: torch.Tensor
@@ -520,7 +521,9 @@ class IntraGroupLoss(Module):
                 *[torch.ones((s, s), dtype=torch.bool) for s in self.group_sizes]
             )
             # Exclude main diagonal
-            self._upper_diag_blocks_mask = torch.triu(diag_blocks_mask, diagonal=1)
+            self.register_buffer(
+                "_upper_diag_blocks_mask", torch.triu(diag_blocks_mask, diagonal=1)
+            )
         else:
             self._upper_diag_blocks_mask = None
 
