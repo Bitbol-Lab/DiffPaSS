@@ -73,6 +73,14 @@ def soft_best_hits(
     """Soft reciprocal best hits graphs from pairwise similarities.
     `similarities` must have shape (..., N, N)."""
     best_hits = torch.empty_like(similarities)
+    inf_diag = torch.zeros(
+        similarities.shape[-2:],
+        device=similarities.device,
+        dtype=similarities.dtype,
+        layout=similarities.layout,
+    )
+    inf_diag.diagonal().fill_(torch.inf)
+    similarities = similarities - inf_diag
     for sl in group_slices:
         best_hits[..., sl].copy_(softmax(similarities[..., sl] / tau, dim=-1))
 
@@ -91,6 +99,14 @@ def hard_best_hits(
     """Hard reciprocal best hits graphs from pairwise similarities.
     `similarities` must have shape (..., N, N)."""
     best_hits = torch.zeros_like(similarities, requires_grad=False)
+    inf_diag = torch.zeros(
+        similarities.shape[-2:],
+        device=similarities.device,
+        dtype=similarities.dtype,
+        layout=similarities.layout,
+    )
+    inf_diag.diagonal().fill_(torch.inf)
+    similarities = similarities - inf_diag
     for sl in group_slices:
         argmax = torch.argmax(similarities[..., sl], dim=-1, keepdim=True)
         best_hits[..., sl].scatter_(-1, argmax, 1.0)
