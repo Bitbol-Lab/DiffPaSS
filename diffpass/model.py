@@ -460,12 +460,6 @@ class BestHits(Module, EnsembleMixin):
                     f"same number of dimensions as the ensemble shape plus 2 = "
                     f"{len(self.ensemble_shape) + 2}, not {similarities.ndim}."
                 )
-        else:
-            if similarities.ndim != 2:
-                raise ValueError(
-                    f"If using hard best hits or a 0D `tau`, "
-                    f"the input must have 2 dimensions, not {similarities.ndim}."
-                )
 
         return self._bh_fn(similarities)
 
