@@ -69,8 +69,8 @@ def apply_hard_permutation_batch_to_similarity(
     return torch.gather(x_permuted_rows, -1, index)
 
 
-def _dcc(x: torch.Tensor) -> torch.Tensor:
-    return x.detach().clone().cpu()
+def _dccn(x: torch.Tensor) -> torch.Tensor:
+    return x.detach().clone().cpu().numpy()
 
 # %% ../nbs/train.ipynb 5
 @dataclass
@@ -243,16 +243,16 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
                     loss_info = epoch_results["loss_info"]
                     perms = epoch_results["perms"]
                     results.log_alphas.append(
-                        [_dcc(log_alpha) for log_alpha in self.permutation.log_alphas]
+                        [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
                     )
                     results.hard_perms.append(
                         [
-                            _dcc(perms_this_group).argmax(-1).to(torch.int16)
+                            _dccn(perms_this_group).argmax(-1).to(torch.int16)
                             for perms_this_group in perms
                         ]
                     )
                     results.hard_losses[self.information_measure].append(
-                        _dcc(loss_info)
+                        _dccn(loss_info)
                     )
 
                 # Soft pass
@@ -262,10 +262,10 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
                     loss_info = epoch_results["loss_info"]
                     perms = epoch_results["perms"]
                     results.soft_perms.append(
-                        [_dcc(perms_this_group) for perms_this_group in perms]
+                        [_dccn(perms_this_group) for perms_this_group in perms]
                     )
                     results.soft_losses[self.information_measure].append(
-                        _dcc(loss_info)
+                        _dccn(loss_info)
                     )
 
                     loss = loss_info.sum()
@@ -649,18 +649,18 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
                         x_perm_hard = epoch_results["x_perm"]
                     perms = epoch_results["perms"]
                     results.log_alphas.append(
-                        [_dcc(log_alpha) for log_alpha in self.permutation.log_alphas]
+                        [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
                     )
                     results.hard_perms.append(
                         [
-                            _dcc(perms_this_group).argmax(-1).to(torch.int16)
+                            _dccn(perms_this_group).argmax(-1).to(torch.int16)
                             for perms_this_group in perms
                         ]
                     )
                     results.hard_losses[self.information_measure].append(
-                        _dcc(loss_info)
+                        _dccn(loss_info)
                     )
-                    results.hard_losses["BestHits"].append(_dcc(loss_bh))
+                    results.hard_losses["BestHits"].append(_dccn(loss_bh))
 
                 # Soft pass
                 if i < epochs or compute_final_soft:
@@ -670,12 +670,12 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
                     loss_bh = epoch_results["loss_bh"]
                     perms = epoch_results["perms"]
                     results.soft_perms.append(
-                        [_dcc(perms_this_group) for perms_this_group in perms]
+                        [_dccn(perms_this_group) for perms_this_group in perms]
                     )
                     results.soft_losses[self.information_measure].append(
-                        _dcc(loss_info)
+                        _dccn(loss_info)
                     )
-                    results.soft_losses["BestHits"].append(_dcc(loss_bh))
+                    results.soft_losses["BestHits"].append(_dccn(loss_bh))
 
                     loss = (
                         self.information_loss.weight * loss_info
@@ -1020,18 +1020,18 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
                         x_perm_hard = epoch_results["x_perm"]
                     perms = epoch_results["perms"]
                     results.log_alphas.append(
-                        [_dcc(log_alpha) for log_alpha in self.permutation.log_alphas]
+                        [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
                     )
                     results.hard_perms.append(
                         [
-                            _dcc(perms_this_group).argmax(-1).to(torch.int16)
+                            _dccn(perms_this_group).argmax(-1).to(torch.int16)
                             for perms_this_group in perms
                         ]
                     )
                     results.hard_losses[self.information_measure].append(
-                        _dcc(loss_info)
+                        _dccn(loss_info)
                     )
-                    results.hard_losses["Mirrortree"].append(_dcc(loss_mt))
+                    results.hard_losses["Mirrortree"].append(_dccn(loss_mt))
 
                 # Soft pass
                 if i < epochs or compute_final_soft:
@@ -1041,12 +1041,12 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
                     loss_mt = epoch_results["loss_mt"]
                     perms = epoch_results["perms"]
                     results.soft_perms.append(
-                        [_dcc(perms_this_group) for perms_this_group in perms]
+                        [_dccn(perms_this_group) for perms_this_group in perms]
                     )
                     results.soft_losses[self.information_measure].append(
-                        _dcc(loss_info)
+                        _dccn(loss_info)
                     )
-                    results.soft_losses["Mirrortree"].append(_dcc(loss_mt))
+                    results.soft_losses["Mirrortree"].append(_dccn(loss_mt))
 
                     loss = (
                         self.information_loss.weight * loss_info
