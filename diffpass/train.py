@@ -247,7 +247,7 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
                     )
                     results.hard_perms.append(
                         [
-                            _dccn(perms_this_group).argmax(-1).to(torch.int16)
+                            _dccn(perms_this_group.argmax(-1).to(torch.int16))
                             for perms_this_group in perms
                         ]
                     )
@@ -653,7 +653,7 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
                     )
                     results.hard_perms.append(
                         [
-                            _dccn(perms_this_group).argmax(-1).to(torch.int16)
+                            _dccn(perms_this_group.argmax(-1).to(torch.int16))
                             for perms_this_group in perms
                         ]
                     )
@@ -1024,7 +1024,7 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
                     )
                     results.hard_perms.append(
                         [
-                            _dccn(perms_this_group).argmax(-1).to(torch.int16)
+                            _dccn(perms_this_group.argmax(-1).to(torch.int16))
                             for perms_this_group in perms
                         ]
                     )
