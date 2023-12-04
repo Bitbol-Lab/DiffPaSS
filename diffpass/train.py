@@ -14,6 +14,9 @@ from copy import deepcopy
 # Progress bars
 from tqdm import tqdm
 
+# NumPy
+import numpy as np
+
 # PyTorch
 import torch
 from torch.nn import Module
@@ -69,19 +72,19 @@ def apply_hard_permutation_batch_to_similarity(
     return torch.gather(x_permuted_rows, -1, index)
 
 
-def _dccn(x: torch.Tensor) -> torch.Tensor:
+def _dccn(x: torch.Tensor) -> np.ndarray:
     return x.detach().clone().cpu().numpy()
 
 # %% ../nbs/train.ipynb 5
 @dataclass
 class DiffPASSResults:
-    log_alphas: list[list[torch.Tensor]]
+    log_alphas: list[list[np.ndarray]]
     # Perms
-    soft_perms: list[list[torch.Tensor]]
-    hard_perms: list[list[torch.Tensor]]
+    soft_perms: list[list[np.ndarray]]
+    hard_perms: list[list[np.ndarray]]
     # Losses
-    hard_losses: dict[str, list[torch.Tensor]]
-    soft_losses: dict[str, list[torch.Tensor]]
+    hard_losses: dict[str, list[np.ndarray]]
+    soft_losses: dict[str, list[np.ndarray]]
     # Losses with identity perm
     hard_losses_identity_perm: dict[str, Optional[float]]
     soft_losses_identity_perm: Optional[dict[str, Optional[float]]] = None
@@ -157,8 +160,6 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         x: torch.Tensor,
         y: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
-        mode = self.permutation.mode
-
         # Soft or hard permutations (list)
         perms = self.permutation()
         x_perm = self.ensemble_matrix_apply(x, mats=perms)
@@ -233,52 +234,45 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         # ------------------------------------------------------------------------------------------
         ## Gradient descent
         # ------------------------------------------------------------------------------------------
-        with torch.set_grad_enabled(True):
-            self.optimizer_.zero_grad()
-            for i in pbar:
-                # Hard pass
-                self.hard_()
-                with torch.no_grad():
-                    epoch_results = self(x, y)
-                    loss_info = epoch_results["loss_info"]
-                    perms = epoch_results["perms"]
-                    results.log_alphas.append(
-                        [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
-                    )
-                    results.hard_perms.append(
-                        [
-                            _dccn(perms_this_group.argmax(-1).to(torch.int16))
-                            for perms_this_group in perms
-                        ]
-                    )
-                    results.hard_losses[self.information_measure].append(
-                        _dccn(loss_info)
-                    )
+        self.optimizer_.zero_grad()
+        for i in pbar:
+            # Hard pass
+            self.hard_()
+            with torch.no_grad():
+                epoch_results = self(x, y)
+                loss_info = epoch_results["loss_info"]
+                perms = epoch_results["perms"]
+                results.log_alphas.append(
+                    [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
+                )
+                results.hard_perms.append(
+                    [
+                        _dccn(perms_this_group).argmax(axis=-1).astype(np.int16)
+                        for perms_this_group in perms
+                    ]
+                )
+                results.hard_losses[self.information_measure].append(_dccn(loss_info))
 
-                # Soft pass
-                if i < epochs or compute_final_soft:
-                    self.soft_()
-                    epoch_results = self(x, y)
-                    loss_info = epoch_results["loss_info"]
-                    perms = epoch_results["perms"]
-                    results.soft_perms.append(
-                        [_dccn(perms_this_group) for perms_this_group in perms]
-                    )
-                    results.soft_losses[self.information_measure].append(
-                        _dccn(loss_info)
-                    )
+            # Soft pass
+            if i < epochs or compute_final_soft:
+                self.soft_()
+                epoch_results = self(x, y)
+                loss_info = epoch_results["loss_info"]
+                perms = epoch_results["perms"]
+                results.soft_perms.append(
+                    [_dccn(perms_this_group) for perms_this_group in perms]
+                )
+                results.soft_losses[self.information_measure].append(_dccn(loss_info))
 
-                    loss = loss_info.sum()
-                    loss.backward()
-                if i < epochs:
-                    self.optimizer_.step()
-                    self.optimizer_.zero_grad()
-                    if mean_centering:
-                        with torch.no_grad():
-                            for log_alpha in self.permutation.log_alphas:
-                                log_alpha[...] -= log_alpha.mean(
-                                    dim=(-1, -2), keepdim=True
-                                )
+                loss = loss_info.sum()
+                loss.backward()
+            if i < epochs:
+                self.optimizer_.step()
+                self.optimizer_.zero_grad()
+                if mean_centering:
+                    with torch.no_grad():
+                        for log_alpha in self.permutation.log_alphas:
+                            log_alpha[...] -= log_alpha.mean(dim=(-1, -2), keepdim=True)
 
         return results
 
@@ -600,7 +594,7 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
             results.soft_losses_identity_perm[
                 self.information_measure
             ] = results.hard_losses_identity_perm[self.information_measure]
-            results.soft_losses_identity_perm["BestHits"] = _dcc(
+            results.soft_losses_identity_perm["BestHits"] = _dccn(
                 self.inter_group_loss(self._bh_soft_x, self._bh_soft_y)
             )
 
@@ -636,61 +630,54 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         ## Gradient descent
         # ------------------------------------------------------------------------------------------
         x_perm_hard = None
-        with torch.set_grad_enabled(True):
-            self.optimizer_.zero_grad()
-            for i in pbar:
-                # Hard pass
-                self.hard_()
-                with torch.no_grad():
-                    epoch_results = self(x, y)
-                    loss_info = epoch_results["loss_info"]
-                    loss_bh = epoch_results["loss_bh"]
-                    if similarity_gradient_bypass:
-                        x_perm_hard = epoch_results["x_perm"]
-                    perms = epoch_results["perms"]
-                    results.log_alphas.append(
-                        [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
-                    )
-                    results.hard_perms.append(
-                        [
-                            _dccn(perms_this_group.argmax(-1).to(torch.int16))
-                            for perms_this_group in perms
-                        ]
-                    )
-                    results.hard_losses[self.information_measure].append(
-                        _dccn(loss_info)
-                    )
-                    results.hard_losses["BestHits"].append(_dccn(loss_bh))
+        self.optimizer_.zero_grad()
+        for i in pbar:
+            # Hard pass
+            self.hard_()
+            with torch.no_grad():
+                epoch_results = self(x, y)
+                loss_info = epoch_results["loss_info"]
+                loss_bh = epoch_results["loss_bh"]
+                if similarity_gradient_bypass:
+                    x_perm_hard = epoch_results["x_perm"]
+                perms = epoch_results["perms"]
+                results.log_alphas.append(
+                    [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
+                )
+                results.hard_perms.append(
+                    [
+                        _dccn(perms_this_group).argmax(axis=-1).astype(np.int16)
+                        for perms_this_group in perms
+                    ]
+                )
+                results.hard_losses[self.information_measure].append(_dccn(loss_info))
+                results.hard_losses["BestHits"].append(_dccn(loss_bh))
 
-                # Soft pass
-                if i < epochs or compute_final_soft:
-                    self.soft_()
-                    epoch_results = self(x, y, x_perm_hard=x_perm_hard)
-                    loss_info = epoch_results["loss_info"]
-                    loss_bh = epoch_results["loss_bh"]
-                    perms = epoch_results["perms"]
-                    results.soft_perms.append(
-                        [_dccn(perms_this_group) for perms_this_group in perms]
-                    )
-                    results.soft_losses[self.information_measure].append(
-                        _dccn(loss_info)
-                    )
-                    results.soft_losses["BestHits"].append(_dccn(loss_bh))
+            # Soft pass
+            if i < epochs or compute_final_soft:
+                self.soft_()
+                epoch_results = self(x, y, x_perm_hard=x_perm_hard)
+                loss_info = epoch_results["loss_info"]
+                loss_bh = epoch_results["loss_bh"]
+                perms = epoch_results["perms"]
+                results.soft_perms.append(
+                    [_dccn(perms_this_group) for perms_this_group in perms]
+                )
+                results.soft_losses[self.information_measure].append(_dccn(loss_info))
+                results.soft_losses["BestHits"].append(_dccn(loss_bh))
 
-                    loss = (
-                        self.information_loss.weight * loss_info
-                        + self.best_hits.weight * loss_bh
-                    ).sum()
-                    loss.backward()
-                if i < epochs:
-                    self.optimizer_.step()
-                    self.optimizer_.zero_grad()
-                    if mean_centering:
-                        with torch.no_grad():
-                            for log_alpha in self.permutation.log_alphas:
-                                log_alpha[...] -= log_alpha.mean(
-                                    dim=(-1, -2), keepdim=True
-                                )
+                loss = (
+                    self.information_loss.weight * loss_info
+                    + self.best_hits.weight * loss_bh
+                ).sum()
+                loss.backward()
+            if i < epochs:
+                self.optimizer_.step()
+                self.optimizer_.zero_grad()
+                if mean_centering:
+                    with torch.no_grad():
+                        for log_alpha in self.permutation.log_alphas:
+                            log_alpha[...] -= log_alpha.mean(dim=(-1, -2), keepdim=True)
 
         return results
 
@@ -1007,61 +994,54 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         ## Gradient descent
         # ------------------------------------------------------------------------------------------
         x_perm_hard = None
-        with torch.set_grad_enabled(True):
-            self.optimizer_.zero_grad()
-            for i in pbar:
-                # Hard pass
-                self.hard_()
-                with torch.no_grad():
-                    epoch_results = self(x, y)
-                    loss_info = epoch_results["loss_info"]
-                    loss_mt = epoch_results["loss_mt"]
-                    if similarity_gradient_bypass:
-                        x_perm_hard = epoch_results["x_perm"]
-                    perms = epoch_results["perms"]
-                    results.log_alphas.append(
-                        [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
-                    )
-                    results.hard_perms.append(
-                        [
-                            _dccn(perms_this_group.argmax(-1).to(torch.int16))
-                            for perms_this_group in perms
-                        ]
-                    )
-                    results.hard_losses[self.information_measure].append(
-                        _dccn(loss_info)
-                    )
-                    results.hard_losses["Mirrortree"].append(_dccn(loss_mt))
+        self.optimizer_.zero_grad()
+        for i in pbar:
+            # Hard pass
+            self.hard_()
+            with torch.no_grad():
+                epoch_results = self(x, y)
+                loss_info = epoch_results["loss_info"]
+                loss_mt = epoch_results["loss_mt"]
+                if similarity_gradient_bypass:
+                    x_perm_hard = epoch_results["x_perm"]
+                perms = epoch_results["perms"]
+                results.log_alphas.append(
+                    [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
+                )
+                results.hard_perms.append(
+                    [
+                        _dccn(perms_this_group).argmax(axis=-1).astype(np.int16)
+                        for perms_this_group in perms
+                    ]
+                )
+                results.hard_losses[self.information_measure].append(_dccn(loss_info))
+                results.hard_losses["Mirrortree"].append(_dccn(loss_mt))
 
-                # Soft pass
-                if i < epochs or compute_final_soft:
-                    self.soft_()
-                    epoch_results = self(x, y, x_perm_hard=x_perm_hard)
-                    loss_info = epoch_results["loss_info"]
-                    loss_mt = epoch_results["loss_mt"]
-                    perms = epoch_results["perms"]
-                    results.soft_perms.append(
-                        [_dccn(perms_this_group) for perms_this_group in perms]
-                    )
-                    results.soft_losses[self.information_measure].append(
-                        _dccn(loss_info)
-                    )
-                    results.soft_losses["Mirrortree"].append(_dccn(loss_mt))
+            # Soft pass
+            if i < epochs or compute_final_soft:
+                self.soft_()
+                epoch_results = self(x, y, x_perm_hard=x_perm_hard)
+                loss_info = epoch_results["loss_info"]
+                loss_mt = epoch_results["loss_mt"]
+                perms = epoch_results["perms"]
+                results.soft_perms.append(
+                    [_dccn(perms_this_group) for perms_this_group in perms]
+                )
+                results.soft_losses[self.information_measure].append(_dccn(loss_info))
+                results.soft_losses["Mirrortree"].append(_dccn(loss_mt))
 
-                    loss = (
-                        self.information_loss.weight * loss_info
-                        + self.intra_group_loss.weight * loss_mt
-                    ).sum()
-                    loss.backward()
-                if i < epochs:
-                    self.optimizer_.step()
-                    self.optimizer_.zero_grad()
-                    if mean_centering:
-                        with torch.no_grad():
-                            for log_alpha in self.permutation.log_alphas:
-                                log_alpha[...] -= log_alpha.mean(
-                                    dim=(-1, -2), keepdim=True
-                                )
+                loss = (
+                    self.information_loss.weight * loss_info
+                    + self.intra_group_loss.weight * loss_mt
+                ).sum()
+                loss.backward()
+            if i < epochs:
+                self.optimizer_.step()
+                self.optimizer_.zero_grad()
+                if mean_centering:
+                    with torch.no_grad():
+                        for log_alpha in self.permutation.log_alphas:
+                            log_alpha[...] -= log_alpha.mean(dim=(-1, -2), keepdim=True)
 
         return results
 
@@ -1116,8 +1096,9 @@ def compute_num_correct_matchings(
             correct_this_step = 0
             for perm_this_group in perms:
                 n_seqs_this_group = perm_this_group.shape[-1]
-                correct_this_group = perm_this_group == torch.arange(n_seqs_this_group)
-                correct_this_group = correct_this_group.sum().item()
+                correct_this_group = np.sum(
+                    perm_this_group == np.arange(n_seqs_this_group)
+                )
                 correct_this_step += correct_this_group
             correct.append(correct_this_step)
     else:
