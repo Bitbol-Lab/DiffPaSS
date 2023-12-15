@@ -594,9 +594,9 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
             results.soft_losses_identity_perm[
                 self.information_measure
             ] = results.hard_losses_identity_perm[self.information_measure]
-            results.soft_losses_identity_perm["BestHits"] = _dccn(
-                self.inter_group_loss(self._bh_soft_x, self._bh_soft_y)
-            )
+            results.soft_losses_identity_perm["BestHits"] = self.inter_group_loss(
+                self._bh_soft_x, self._bh_soft_y
+            ).item()
 
         return results
 
