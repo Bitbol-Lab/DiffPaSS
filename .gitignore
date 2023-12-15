@@ -155,3 +155,7 @@ nbs/Results
 
 # Jupyterlab-lsp
 .virtual_documents
+
+# Pickle files
+*.pkl
+*.pickle
