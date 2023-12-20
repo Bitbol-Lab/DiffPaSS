@@ -44,7 +44,8 @@ class DiffPASSMixin:
     def validate_permutation_cfg(self, permutation_cfg: dict) -> None:
         if not set(permutation_cfg).issubset(self.allowed_permutation_cfg_keys):
             raise ValueError(
-                f"Invalid keys in `permutation_cfg`: {set(permutation_cfg) - self.allowed_permutation_cfg_keys}"
+                f"Invalid keys in `permutation_cfg`: "
+                f"{set(permutation_cfg) - self.allowed_permutation_cfg_keys}"
             )
 
     def validate_information_measure(self, information_measure: str) -> None:
@@ -66,13 +67,15 @@ class DiffPASSMixin:
             self.allowed_similarities_cfg_keys[self.similarity_kind]
         ):
             raise ValueError(
-                f"Invalid keys in `similarities_cfg`: {set(similarities_cfg) - self.allowed_similarities_cfg_keys[self.similarity_kind]}"
+                f"Invalid keys in `similarities_cfg`: "
+                f"{set(similarities_cfg) - self.allowed_similarities_cfg_keys[self.similarity_kind]}"
             )
 
     def validate_best_hits_cfg(self, best_hits_cfg: dict) -> None:
         if not set(best_hits_cfg).issubset(self.allowed_best_hits_cfg_keys):
             raise ValueError(
-                f"Invalid keys in `best_hits_cfg`: {set(best_hits_cfg) - self.allowed_best_hits_cfg_keys}"
+                f"Invalid keys in `best_hits_cfg`: "
+                f"{set(best_hits_cfg) - self.allowed_best_hits_cfg_keys}"
             )
 
     def validate_inputs(
@@ -94,13 +97,26 @@ class DiffPASSMixin:
                 f"size of {total_size}."
             )
 
+    @staticmethod
+    def check_can_optimize(n_effectively_fixed: int, n_available: int) -> None:
+        if n_effectively_fixed == n_available:
+            raise ValueError(
+                "The number of effectively fixed matchings is equal to the number "
+                "of sequences. No optimization can be performed."
+            )
+        elif n_effectively_fixed > n_available:
+            raise ValueError(
+                "The number of effectively fixed matchings is greater than the number "
+                "of available sequences. Check your inputs."
+            )
+
 # %% ../nbs/base.ipynb 4
 def scalar_or_1d_tensor(
     *, param: Any, param_name: str, dtype: torch.dtype = torch.float32
 ) -> torch.Tensor:
-    if not isinstance(param, (float, torch.Tensor)):
-        raise TypeError(f"`{param_name}` must be a float or a torch.Tensor.")
-    if isinstance(param, float):
+    if not isinstance(param, (int, float, torch.Tensor)):
+        raise TypeError(f"`{param_name}` must be a scalar or a torch.Tensor.")
+    if not isinstance(param, torch.Tensor):
         param = torch.tensor(param, dtype=dtype)
     elif param.ndim > 1:
         raise ValueError(

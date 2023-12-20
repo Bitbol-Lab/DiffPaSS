@@ -289,6 +289,7 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
         results = self._prepare_fit(x, y)
+        self.check_can_optimize(self.permutation._total_number_fixed_matchings, len(x))
         results = self._fit(
             x,
             y,
@@ -695,6 +696,7 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
         results = self._prepare_fit(x, y)
+        self.check_can_optimize(self.permutation._total_number_fixed_matchings, len(x))
         results = self._fit(
             x,
             y,
@@ -1059,6 +1061,7 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
         results = self._prepare_fit(x, y)
+        self.check_can_optimize(self.permutation._total_number_fixed_matchings, len(x))
         results = self._fit(
             x,
             y,

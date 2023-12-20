@@ -88,7 +88,10 @@ class GeneralizedPermutation(Module, EnsembleMixin):
         )
         self.log_alphas = ParameterList(
             [
-                Parameter(torch.zeros(*self.ensemble_shape, s, s, dtype=torch.float32))
+                Parameter(
+                    torch.zeros(*self.ensemble_shape, s, s, dtype=torch.float32),
+                    requires_grad=bool(s),
+                )
                 for s in self.nonfixed_group_sizes_
             ]
         )
@@ -133,7 +136,7 @@ class GeneralizedPermutation(Module, EnsembleMixin):
                     fm_zip = list(zip(*fm))
                 else:
                     num_fm = 0
-                    fm_zip = ((), ())
+                    fm_zip = [(), ()]
                 complement = s - num_fm  # Effectively fully fixed when complement <= 1
                 is_fully_fixed = complement <= 1
                 num_efm = s - (s - num_fm) * (not is_fully_fixed)
@@ -151,6 +154,13 @@ class GeneralizedPermutation(Module, EnsembleMixin):
                         mask[..., :, i] = False
                 self.register_buffer(f"_not_fixed_masks_{idx}", mask)
                 self._effective_fixed_matchings_zip.append(fm_zip)
+            self._total_number_fixed_matchings = sum(
+                self._effective_number_fixed_matchings
+            )
+        else:
+            self._effective_fixed_matchings_zip = [[(), ()] for _ in self.group_sizes]
+            self._effective_number_fixed_matchings = [0] * len(self.group_sizes)
+            self._total_number_fixed_matchings = 0
 
     @property
     def _not_fixed_masks(self) -> list[torch.Tensor]:
