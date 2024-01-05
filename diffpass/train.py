@@ -206,6 +206,49 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
 
         return results
 
+    def _record_current_log_alphas(self, results: DiffPASSResults) -> DiffPASSResults:
+        results.log_alphas.append(
+            [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
+        )
+
+        return results
+
+    def _hard_pass(
+        self, x: torch.Tensor, y: torch.Tensor, results: DiffPASSResults
+    ) -> DiffPASSResults:
+        self.hard_()
+        with torch.no_grad():
+            epoch_results = self(x, y)
+            perms = epoch_results["perms"]
+            loss_info = epoch_results["loss_info"]
+            results.hard_perms.append(
+                [
+                    _dccn(perms_this_group).argmax(axis=-1).astype(np.int16)
+                    for perms_this_group in perms
+                ]
+            )
+            results.hard_losses[self.information_measure].append(_dccn(loss_info))
+
+        return results
+
+    def _soft_pass_and_backward(
+        self, x: torch.Tensor, y: torch.Tensor, results: DiffPASSResults
+    ) -> DiffPASSResults:
+        self.soft_()
+        epoch_results = self(x, y)
+        perms = epoch_results["perms"]
+        loss_info = epoch_results["loss_info"]
+        results.soft_perms.append(
+            [_dccn(perms_this_group) for perms_this_group in perms]
+        )
+        results.soft_losses[self.information_measure].append(_dccn(loss_info))
+
+        # Backward step
+        loss = loss_info.sum()
+        loss.backward()
+
+        return results
+
     def _fit(
         self,
         x: torch.Tensor,
@@ -236,36 +279,16 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         # ------------------------------------------------------------------------------------------
         self.optimizer_.zero_grad()
         for i in pbar:
+            # Record current log_alphas
+            results = self._record_current_log_alphas(results)
+
             # Hard pass
-            self.hard_()
-            with torch.no_grad():
-                epoch_results = self(x, y)
-                loss_info = epoch_results["loss_info"]
-                perms = epoch_results["perms"]
-                results.log_alphas.append(
-                    [_dccn(log_alpha) for log_alpha in self.permutation.log_alphas]
-                )
-                results.hard_perms.append(
-                    [
-                        _dccn(perms_this_group).argmax(axis=-1).astype(np.int16)
-                        for perms_this_group in perms
-                    ]
-                )
-                results.hard_losses[self.information_measure].append(_dccn(loss_info))
+            results = self._hard_pass(x, y, results)
 
-            # Soft pass
+            # Soft pass and backward step
             if i < epochs or compute_final_soft:
-                self.soft_()
-                epoch_results = self(x, y)
-                loss_info = epoch_results["loss_info"]
-                perms = epoch_results["perms"]
-                results.soft_perms.append(
-                    [_dccn(perms_this_group) for perms_this_group in perms]
-                )
-                results.soft_losses[self.information_measure].append(_dccn(loss_info))
+                results = self._soft_pass_and_backward(x, y, results)
 
-                loss = loss_info.sum()
-                loss.backward()
             if i < epochs:
                 self.optimizer_.step()
                 self.optimizer_.zero_grad()
@@ -289,20 +312,28 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
         results = self._prepare_fit(x, y)
-        self.check_can_optimize(self.permutation._total_number_fixed_matchings, len(x))
-        results = self._fit(
-            x,
-            y,
-            results,
-            epochs=epochs,
-            optimizer_name=optimizer_name,
-            optimizer_kwargs=optimizer_kwargs,
-            mean_centering=mean_centering,
-            show_pbar=show_pbar,
-            compute_final_soft=compute_final_soft,
-        )
-
-        return results
+        try:
+            self.check_can_optimize(
+                self.permutation._total_number_fixed_matchings, len(x)
+            )
+        except ValueError:
+            # Just record current log_alphas and do a single hard pass
+            results = self._record_current_log_alphas(results)
+            results = self._hard_pass(x, y, results)
+        else:
+            results = self._fit(
+                x,
+                y,
+                results,
+                epochs=epochs,
+                optimizer_name=optimizer_name,
+                optimizer_kwargs=optimizer_kwargs,
+                mean_centering=mean_centering,
+                show_pbar=show_pbar,
+                compute_final_soft=compute_final_soft,
+            )
+        finally:
+            return results
 
 # %% ../nbs/train.ipynb 7
 class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
@@ -1082,9 +1113,7 @@ def compute_num_correct_matchings(
     results: DiffPASSResults,
     *,
     index_based: bool,
-    x_seqs: Optional[list[list[tuple]]] = None,
-    y_seqs: Optional[list[list[tuple]]] = None,
-    xy_seqs: Optional[list[dict[str, int]]] = None,
+    single_and_paired_seqs: Optional[dict[str, list]] = None,
 ) -> list[int]:
     """Compute the number of matchings that are 'correct' at each step of the optimization.
     'Correct' means that they are present in the original paired MSAs, assumed to be the
@@ -1105,6 +1134,9 @@ def compute_num_correct_matchings(
                 correct_this_step += correct_this_group
             correct.append(correct_this_step)
     else:
+        x_seqs = single_and_paired_seqs["x_seqs"]
+        y_seqs = single_and_paired_seqs["y_seqs"]
+        xy_seqs_to_counts = single_and_paired_seqs["xy_seqs_to_counts"]
         for perms in results.hard_perms:
             correct_this_perm = 0
             for (
@@ -1112,7 +1144,7 @@ def compute_num_correct_matchings(
                 x_seqs_this_group,
                 y_seqs_this_group,
                 xy_seqs_this_group,
-            ) in zip(perms, x_seqs, y_seqs, xy_seqs):
+            ) in zip(perms, x_seqs, y_seqs, xy_seqs_to_counts):
                 _xy_seqs_this_group = xy_seqs_this_group.copy()
                 x_seqs_this_group_perm = [
                     x_seqs_this_group[idx] for idx in perm_this_group
