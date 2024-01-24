@@ -150,8 +150,13 @@ checklink/cookies.txt
 # Quarto
 .quarto
 
-# Results folder
-nbs/results
+# Data and results folder, except benchmark prokaryotic MSAs
+data/*
+!data/HK-RR
+!data/MALG-MALK
+!data/HK-RR/*
+!data/MALG-MALK/*
+results
 
 # Jupyterlab-lsp
 .virtual_documents
