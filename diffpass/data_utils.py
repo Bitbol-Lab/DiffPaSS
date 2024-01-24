@@ -208,27 +208,33 @@ def get_single_and_paired_seqs(
     """Single and paired sequences from two MSAs. The paired sequences are returned as a list of
     dictionaries, where the keys are the concatenated sequences and the values are the number of
     times that pair appears in the concatenated MSA."""
-    x_seqs = []
-    y_seqs = []
+    x_seqs_by_group = []
+    y_seqs_by_group = []
 
     idx = 0
-    xy_seqs_to_counts = []
+    xy_seqs_to_counts_by_group = []
     for s in group_sizes:
         x_seqs_this_group = list(zip(*msa_x[idx : s + idx]))[1]
-        x_seqs.append(x_seqs_this_group)
+        x_seqs_by_group.append(x_seqs_this_group)
         y_seqs_this_group = list(zip(*msa_y[idx : s + idx]))[1]
-        y_seqs.append(y_seqs_this_group)
+        y_seqs_by_group.append(y_seqs_this_group)
         xy_seqs_this_group = [
             f"{x_seq}:{y_seq}"
             for x_seq, y_seq in zip(x_seqs_this_group, y_seqs_this_group)
         ]
-        unique_xy, counts_xy = np.unique(
+        unique_xy_this_group, counts_xy_this_group = np.unique(
             np.array(xy_seqs_this_group), return_counts=True
         )
-        xy_seqs_to_counts.append(dict(zip(unique_xy, counts_xy)))
+        xy_seqs_to_counts_by_group.append(
+            dict(zip(unique_xy_this_group, counts_xy_this_group))
+        )
         idx += s
 
-    return {"x_seqs": x_seqs, "y_seqs": y_seqs, "xy_seqs_to_counts": xy_seqs_to_counts}
+    return {
+        "x_seqs_by_group": x_seqs_by_group,
+        "y_seqs_by_group": y_seqs_by_group,
+        "xy_seqs_to_counts_by_group": xy_seqs_to_counts_by_group,
+    }
 
 
 def msa_tokenizer(

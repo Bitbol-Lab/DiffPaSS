@@ -1110,7 +1110,7 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
 
 # %% ../nbs/train.ipynb 9
 def compute_num_correct_matchings(
-    results: DiffPASSResults,
+    hard_perms: list[list[np.ndarray]],
     *,
     index_based: bool,
     single_and_paired_seqs: Optional[dict[str, list]] = None,
@@ -1124,7 +1124,7 @@ def compute_num_correct_matchings(
     """
     correct = []
     if index_based:
-        for perms in results.hard_perms:
+        for perms in hard_perms:
             correct_this_step = 0
             for perm_this_group in perms:
                 n_seqs_this_group = perm_this_group.shape[-1]
@@ -1134,25 +1134,29 @@ def compute_num_correct_matchings(
                 correct_this_step += correct_this_group
             correct.append(correct_this_step)
     else:
-        x_seqs = single_and_paired_seqs["x_seqs"]
-        y_seqs = single_and_paired_seqs["y_seqs"]
-        xy_seqs_to_counts = single_and_paired_seqs["xy_seqs_to_counts"]
-        for perms in results.hard_perms:
+        x_seqs_by_group = single_and_paired_seqs["x_seqs_by_group"]
+        y_seqs_by_group = single_and_paired_seqs["y_seqs_by_group"]
+        xy_seqs_to_counts_by_group = single_and_paired_seqs[
+            "xy_seqs_to_counts_by_group"
+        ]
+        for perms in hard_perms:
             correct_this_perm = 0
             for (
                 perm_this_group,
                 x_seqs_this_group,
                 y_seqs_this_group,
-                xy_seqs_this_group,
-            ) in zip(perms, x_seqs, y_seqs, xy_seqs_to_counts):
-                _xy_seqs_this_group = xy_seqs_this_group.copy()
+                xy_seqs_to_counts_this_group,
+            ) in zip(
+                perms, x_seqs_by_group, y_seqs_by_group, xy_seqs_to_counts_by_group
+            ):
+                _xy_seqs_to_counts_this_group = xy_seqs_to_counts_this_group.copy()
                 x_seqs_this_group_perm = [
                     x_seqs_this_group[idx] for idx in perm_this_group
                 ]
                 for x_seq, y_seq in zip(x_seqs_this_group_perm, y_seqs_this_group):
                     xy_key = f"{x_seq}:{y_seq}"
-                    if _xy_seqs_this_group.get(xy_key, 0) > 0:
-                        _xy_seqs_this_group[xy_key] -= 1
+                    if _xy_seqs_to_counts_this_group.get(xy_key, 0) > 0:
+                        _xy_seqs_to_counts_this_group[xy_key] -= 1
                         correct_this_perm += 1
 
             correct.append(correct_this_perm)
