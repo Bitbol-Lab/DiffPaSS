@@ -89,7 +89,7 @@ class GeneralizedPermutation(Module, EnsembleMixin):
         self.log_alphas = ParameterList(
             [
                 Parameter(
-                    torch.zeros(*self.ensemble_shape, s, s, dtype=torch.float32),
+                    torch.zeros(*self.ensemble_shape, s, s),
                     requires_grad=bool(s),
                 )
                 for s in self.nonfixed_group_sizes_

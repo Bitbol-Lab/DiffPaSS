@@ -93,6 +93,6 @@ def get_blosum62_data(
 
     return TokenizedSubstitutionMatrix(
         name=BLOSUM62.name,
-        mat=torch.tensor(mat.to_numpy(), dtype=torch.float32),
+        mat=torch.tensor(mat.to_numpy(), dtype=torch.get_default_dtype()),
         expected_value=BLOSUM62.expected_value,
     )

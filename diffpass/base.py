@@ -111,13 +111,11 @@ class DiffPASSMixin:
             )
 
 # %% ../nbs/base.ipynb 4
-def scalar_or_1d_tensor(
-    *, param: Any, param_name: str, dtype: torch.dtype = torch.float32
-) -> torch.Tensor:
+def scalar_or_1d_tensor(*, param: Any, param_name: str) -> torch.Tensor:
     if not isinstance(param, (int, float, torch.Tensor)):
         raise TypeError(f"`{param_name}` must be a scalar or a torch.Tensor.")
     if not isinstance(param, torch.Tensor):
-        param = torch.tensor(param, dtype=dtype)
+        param = torch.tensor(param, dtype=torch.get_default_dtype())
     elif param.ndim > 1:
         raise ValueError(
             f"`{param_name}` must be a scalar or a tensor of dimension <= 1."
@@ -163,7 +161,7 @@ class EnsembleMixin:
                 raise ValueError(
                     f"`dim_in_ensemble` cannot be None if {param_name} is 1D."
                 )
-            param = param.to(torch.float32)
+            param = param.to(torch.get_default_dtype())
             # If param is not a scalar, broadcast it along the `ensemble_dim`-th ensemble dimension
             if dim_in_ensemble >= n_ensemble_dims or dim_in_ensemble < -n_ensemble_dims:
                 raise ValueError(
