@@ -30,7 +30,8 @@ from .constants import get_blosum62_data
 from diffpass.sequence_similarity_ops import (
     smooth_hamming_similarities_dot,
     smooth_hamming_similarities_cdist,
-    smooth_substitution_matrix_similarities,
+    smooth_substitution_matrix_similarities_dot,
+    smooth_substitution_matrix_similarities_cdist,
     soft_best_hits,
     hard_best_hits,
 )
@@ -312,7 +313,7 @@ class HammingSimilarities(Module):
             if self.p is None:
                 raise ValueError("If `use_dot` is False, `p` must be provided.")
             self._similarities_fn = smooth_hamming_similarities_cdist
-            self._similarities_fn_kwargs = {"p": p}
+            self._similarities_fn_kwargs = {"p": self.p}
 
         self._group_slices = _consecutive_slices_from_sizes(self.group_sizes)
 
@@ -334,6 +335,8 @@ class Blosum62Similarities(Module):
         self,
         *,
         group_sizes: Optional[Iterable[int]] = None,
+        use_dot: bool = True,
+        p: Optional[float] = None,
         use_scoredist: bool = False,
         aa_to_int: Optional[dict[str, int]] = None,
         gaps_as_stars: bool = True,
@@ -342,6 +345,8 @@ class Blosum62Similarities(Module):
         self.group_sizes = (
             tuple(s for s in group_sizes) if group_sizes is not None else None
         )
+        self.use_dot = use_dot
+        self.p = p
         self.use_scoredist = use_scoredist
         self.aa_to_int = aa_to_int
         self.gaps_as_stars = gaps_as_stars
@@ -352,6 +357,21 @@ class Blosum62Similarities(Module):
         self.register_buffer("subs_mat", blosum62_data.mat)
         self.expected_value = blosum62_data.expected_value
 
+        self._similarities_fn_kwargs = {"subs_mat": self.subs_mat}
+        if self.use_dot:
+            if self.p is not None:
+                warn("Since a `p` was provided, `use_dot` will be ignored.")
+            self._similarities_fn = smooth_substitution_matrix_similarities_dot
+            self._similarities_fn_kwargs = {
+                "use_scoredist": self.use_scoredist,
+                "expected_value": self.expected_value,
+            }
+        else:
+            if self.p is None:
+                raise ValueError("If `use_dot` is False, `p` must be provided.")
+            self._similarities_fn = smooth_substitution_matrix_similarities_cdist
+            self._similarities_fn_kwargs = {"p": self.p}
+
         self._group_slices = _consecutive_slices_from_sizes(self.group_sizes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -361,11 +381,10 @@ class Blosum62Similarities(Module):
         )
         for sl in self._group_slices:
             out[..., sl, sl].copy_(
-                smooth_substitution_matrix_similarities(
+                self._similarities_fn(
                     x[..., sl, :, :],
                     subs_mat=self.subs_mat,
-                    expected_value=self.expected_value,
-                    use_scoredist=self.use_scoredist,
+                    **self._similarities_fn_kwargs,
                 )
             )
 
