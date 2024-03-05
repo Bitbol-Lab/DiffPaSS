@@ -66,6 +66,7 @@ def sinkhorn_norm(alpha: torch.Tensor, n_iter: int = 20) -> torch.Tensor:
     return alpha
 
 
+@torch.compile
 def log_sinkhorn_norm(log_alpha: torch.Tensor, n_iter: int = 20) -> torch.Tensor:
     """Iterative Sinkhorn normalization in log space, for numerical stability."""
     for _ in range(n_iter):
@@ -114,7 +115,9 @@ def matching(
     np_matching_mats = np.zeros_like(np_log_alpha)
     for idx in np.ndindex(np_log_alpha.shape[:-2]):
         np_matching_mats[idx] = np_matching(np_log_alpha[idx])
-    matching_mats = torch.from_numpy(np_matching_mats).float().to(log_alpha.device)
+    matching_mats = (
+        torch.from_numpy(np_matching_mats).to(log_alpha.device).to(log_alpha.dtype)
+    )
 
     return matching_mats
 
