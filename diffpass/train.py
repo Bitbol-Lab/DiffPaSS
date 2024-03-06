@@ -78,9 +78,9 @@ def _dccn(x: torch.Tensor) -> np.ndarray:
 # %% ../nbs/train.ipynb 5
 @dataclass
 class DiffPASSResults:
-    log_alphas: list[list[np.ndarray]]
+    log_alphas: Optional[list[list[np.ndarray]]]
     # Perms
-    soft_perms: list[list[np.ndarray]]
+    soft_perms: Optional[list[list[np.ndarray]]]
     hard_perms: list[list[np.ndarray]]
     # Losses
     hard_losses: dict[str, list[np.ndarray]]
@@ -97,12 +97,16 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         fixed_matchings: Optional[Sequence[Sequence[Sequence[int]]]] = None,
         permutation_cfg: Optional[dict[str, Any]] = None,
         information_measure: Literal["MI", "TwoBodyEntropy"] = "TwoBodyEntropy",
+        record_log_alphas: bool = False,
+        record_soft_perms: bool = False,
     ):
         super().__init__()
         self.group_sizes = tuple(s for s in group_sizes)
         self.fixed_matchings = fixed_matchings
         self.permutation_cfg = permutation_cfg
         self.information_measure = information_measure
+        self.record_log_alphas = record_log_alphas
+        self.record_soft_perms = record_soft_perms
 
         ensemble_shape = []
         _dim_in_ensemble = -1
@@ -181,8 +185,8 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
 
         # Initialize DiffPassResults object
         results = DiffPASSResults(
-            log_alphas=[],
-            soft_perms=[],
+            log_alphas=[] if self.record_log_alphas else None,
+            soft_perms=[] if self.record_soft_perms else None,
             hard_perms=[],
             soft_losses={self.information_measure: []},
             hard_losses={self.information_measure: []},
@@ -238,9 +242,10 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         epoch_results = self(x, y)
         perms = epoch_results["perms"]
         loss_info = epoch_results["loss_info"]
-        results.soft_perms.append(
-            [_dccn(perms_this_group) for perms_this_group in perms]
-        )
+        if self.record_soft_perms:
+            results.soft_perms.append(
+                [_dccn(perms_this_group) for perms_this_group in perms]
+            )
         results.soft_losses[self.information_measure].append(_dccn(loss_info))
 
         # Backward step
@@ -280,7 +285,8 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         self.optimizer_.zero_grad()
         for i in pbar:
             # Record current log_alphas
-            results = self._record_current_log_alphas(results)
+            if self.record_log_alphas:
+                results = self._record_current_log_alphas(results)
 
             # Hard pass
             results = self._hard_pass(x, y, results)
@@ -318,7 +324,8 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
             )
         except ValueError:
             # Just record current log_alphas and do a single hard pass
-            results = self._record_current_log_alphas(results)
+            if self.record_log_alphas:
+                results = self._record_current_log_alphas(results)
             results = self._hard_pass(x, y, results)
         else:
             results = self._fit(
