@@ -364,6 +364,8 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         similarities_cfg: Optional[dict[str, Any]] = None,
         best_hits_cfg: Optional[dict[str, Any]] = None,
         inter_group_loss_score_fn: Optional[callable] = None,
+        similarity_gradient_bypass: bool = False,
+        compare_soft_best_hits_to_hard: bool = True,
     ):
         super().__init__()
         self.group_sizes = tuple(s for s in group_sizes)
@@ -375,6 +377,8 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         self.similarities_cfg = similarities_cfg
         self.best_hits_cfg = best_hits_cfg
         self.inter_group_loss_score_fn = inter_group_loss_score_fn
+        self.similarity_gradient_bypass = similarity_gradient_bypass
+        self.compare_soft_best_hits_to_hard = compare_soft_best_hits_to_hard
 
         ensemble_shape = []
         _dim_in_ensemble = -1
@@ -561,6 +565,12 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         similarities_y = self.best_hits.prepare_fixed(similarities_y)
         self.register_buffer("_bh_soft_y", self.best_hits(similarities_y))
 
+    @property
+    def _bh_y_for_soft_x(self):
+        if self.compare_soft_best_hits_to_hard:
+            return self._bh_hard_y
+        return self._bh_soft_y
+
     def forward(
         self,
         x: torch.Tensor,
@@ -580,16 +590,18 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
 
         # Best hits portion of the loss, with shortcut for hard permutations
         if mode == "soft":
-            if x_perm_hard is not None:
+            if self.similarity_gradient_bypass:
                 x_perm = (x_perm_hard - x_perm).detach() + x_perm
             similarities_x = self.similarities(x_perm)
             bh_x = self.best_hits(similarities_x)
+            # Ensure comparisons are soft_x-{soft,hard}_y, depending on
+            # self.compare_soft_best_hits_to_hard
+            loss_bh = self.inter_group_loss(bh_x, self._bh_y_for_soft_x)
         else:
             bh_x = apply_hard_permutation_batch_to_similarity(
                 x=self._bh_hard_x, perms=perms
             )
-        # Ensure comparisons are only hard-hard or soft-soft
-        loss_bh = self.inter_group_loss(bh_x, getattr(self, f"_bh_{mode}_y"))
+            loss_bh = self.inter_group_loss(bh_x, self._bh_hard_y)
 
         return {
             "perms": perms,
@@ -643,7 +655,7 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
                 self.information_measure
             ] = results.hard_losses_identity_perm[self.information_measure]
             results.soft_losses_identity_perm["BestHits"] = self.inter_group_loss(
-                self._bh_soft_x, self._bh_soft_y
+                self._bh_soft_x, self._bh_y_for_soft_x
             ).item()
 
         return results
@@ -658,7 +670,6 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         optimizer_name: Optional[str] = "SGD",
         optimizer_kwargs: Optional[dict[str, Any]] = None,
         mean_centering: bool = True,
-        similarity_gradient_bypass: bool = False,
         show_pbar: bool = True,
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
@@ -686,7 +697,7 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
                 epoch_results = self(x, y)
                 loss_info = epoch_results["loss_info"]
                 loss_bh = epoch_results["loss_bh"]
-                if similarity_gradient_bypass:
+                if self.similarity_gradient_bypass:
                     x_perm_hard = epoch_results["x_perm"]
                 perms = epoch_results["perms"]
                 results.log_alphas.append(
@@ -738,7 +749,6 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
         optimizer_name: Optional[str] = "SGD",
         optimizer_kwargs: Optional[dict[str, Any]] = None,
         mean_centering: bool = True,
-        similarity_gradient_bypass: bool = False,
         show_pbar: bool = True,
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
@@ -752,7 +762,6 @@ class InformationAndBestHits(Module, EnsembleMixin, DiffPASSMixin):
             optimizer_name=optimizer_name,
             optimizer_kwargs=optimizer_kwargs,
             mean_centering=mean_centering,
-            similarity_gradient_bypass=similarity_gradient_bypass,
             show_pbar=show_pbar,
             compute_final_soft=compute_final_soft,
         )
@@ -771,6 +780,7 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         similarity_kind: Literal["Hamming", "Blosum62"] = "Hamming",
         similarities_cfg: Optional[dict[str, Any]] = None,
         intra_group_loss_score_fn: Optional[callable] = None,
+        similarity_gradient_bypass: bool = False,
     ):
         super().__init__()
         self.group_sizes = tuple(s for s in group_sizes)
@@ -781,6 +791,7 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         self.similarity_kind = similarity_kind
         self.similarities_cfg = similarities_cfg
         self.intra_group_loss_score_fn = intra_group_loss_score_fn
+        self.similarity_gradient_bypass = similarity_gradient_bypass
 
         ensemble_shape = []
         _dim_in_ensemble = -1
@@ -956,17 +967,15 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
 
         # Mirrortree portion of the loss, with shortcut for hard permutations
         if mode == "soft":
-            if x_perm_hard is not None:
+            if self.similarity_gradient_bypass:
                 x_perm = (x_perm_hard - x_perm).detach() + x_perm
             similarities_x = self.similarities(x_perm)
         else:
             similarities_x = apply_hard_permutation_batch_to_similarity(
                 x=self._similarities_hard_x, perms=perms
             )
-        # Ensure comparisons are only hard-hard or soft-soft
-        loss_mt = self.intra_group_loss(
-            similarities_x, getattr(self, f"_similarities_hard_y")
-        )
+
+        loss_mt = self.intra_group_loss(similarities_x, self._similarities_hard_y)
 
         return {
             "perms": perms,
@@ -1023,7 +1032,6 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         optimizer_name: Optional[str] = "SGD",
         optimizer_kwargs: Optional[dict[str, Any]] = None,
         mean_centering: bool = True,
-        similarity_gradient_bypass: bool = False,
         show_pbar: bool = True,
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
@@ -1051,7 +1059,7 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
                 epoch_results = self(x, y)
                 loss_info = epoch_results["loss_info"]
                 loss_mt = epoch_results["loss_mt"]
-                if similarity_gradient_bypass:
+                if self.similarity_gradient_bypass:
                     x_perm_hard = epoch_results["x_perm"]
                 perms = epoch_results["perms"]
                 results.log_alphas.append(
@@ -1103,7 +1111,6 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
         optimizer_name: Optional[str] = "SGD",
         optimizer_kwargs: Optional[dict[str, Any]] = None,
         mean_centering: bool = True,
-        similarity_gradient_bypass: bool = False,
         show_pbar: bool = True,
         compute_final_soft: bool = True,
     ) -> DiffPASSResults:
@@ -1117,7 +1124,6 @@ class InformationAndMirrortree(Module, EnsembleMixin, DiffPASSMixin):
             optimizer_name=optimizer_name,
             optimizer_kwargs=optimizer_kwargs,
             mean_centering=mean_centering,
-            similarity_gradient_bypass=similarity_gradient_bypass,
             show_pbar=show_pbar,
             compute_final_soft=compute_final_soft,
         )
