@@ -198,6 +198,11 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
             },
         )
 
+        return results
+
+    def record_hard_losses_identity_perm(
+        self, x: torch.Tensor, y: torch.Tensor, results: DiffPASSResults
+    ) -> DiffPASSResults:
         # Compute hard losses with identity permutation
         self.hard_()
         with torch.no_grad():
@@ -316,8 +321,12 @@ class Information(Module, EnsembleMixin, DiffPASSMixin):
         mean_centering: bool = True,
         show_pbar: bool = True,
         compute_final_soft: bool = True,
+        compute_hard_losses_identity_perm: bool = False,
     ) -> DiffPASSResults:
         results = self._prepare_fit(x, y)
+        if compute_hard_losses_identity_perm:
+            results = self.record_hard_losses_identity_perm(x, y, results)
+
         try:
             self.check_can_optimize(
                 self.permutation._total_number_fixed_matchings, len(x)
