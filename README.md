@@ -85,7 +85,18 @@ ingredients are as follows:
 <em>The DiffPaSS bootstrap technique and robust pairs</em>
 </p>
 
-## Install
+## Installation
+
+### From PyPI
+
+DiffPaSS requires Python 3.7 or later. It is available on PyPI and can
+be installed with `pip`:
+
+``` sh
+python -m pip install diffpass
+```
+
+### From source
 
 Clone this repository on your local machine by running and move inside
 the root folder. We recommend creating and activating a dedicated conda
