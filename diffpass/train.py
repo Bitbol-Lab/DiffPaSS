@@ -3,7 +3,7 @@
 # %% auto 0
 __all__ = ['InformationPairing', 'BestHitsPairing', 'MirrortreePairing', 'GraphAlignment']
 
-# %% ../nbs/train.ipynb 3
+# %% ../nbs/train.ipynb 4
 # Stdlib imports
 from collections.abc import Sequence
 from typing import Optional, Any, Literal
@@ -26,8 +26,10 @@ from diffpass.model import (
     IntraGroupSimilarityLoss,
 )
 
-# %% ../nbs/train.ipynb 4
+# %% ../nbs/train.ipynb 5
 class InformationPairing(DiffPaSSModel):
+    """DiffPaSS model for information-theoretic pairing of multiple sequence alignments (MSAs)."""
+
     are_inputs_msas = True
 
     def __init__(
@@ -85,8 +87,10 @@ class InformationPairing(DiffPaSSModel):
 
         return {"hard": hard_loss_identity_perm, "soft": soft_loss_identity_perm}
 
-# %% ../nbs/train.ipynb 6
+# %% ../nbs/train.ipynb 8
 class BestHitsPairing(DiffPaSSModel):
+    """DiffPaSS model for pairing of multiple sequence alignments (MSAs) by aligning their orthology networks, constructed using (reciprocal) best hits ."""
+
     are_inputs_msas = True
 
     def __init__(
@@ -215,8 +219,10 @@ class BestHitsPairing(DiffPaSSModel):
 
         return {"hard": hard_loss_identity_perm, "soft": soft_loss_identity_perm}
 
-# %% ../nbs/train.ipynb 8
+# %% ../nbs/train.ipynb 11
 class MirrortreePairing(DiffPaSSModel):
+    """DiffPaSS model for pairing of multiple sequence alignments (MSAs) by aligning their sequence distance networks as in the Mirrortree method."""
+
     are_inputs_msas = True
 
     def __init__(
@@ -308,8 +314,10 @@ class MirrortreePairing(DiffPaSSModel):
 
         return {"hard": hard_loss_identity_perm, "soft": soft_loss_identity_perm}
 
-# %% ../nbs/train.ipynb 10
+# %% ../nbs/train.ipynb 14
 class GraphAlignment(DiffPaSSModel):
+    """DiffPaSS model for general graph alignment starting from the weighted adjacency matrices of two graphs."""
+
     are_inputs_msas = False
 
     def __init__(

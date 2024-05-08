@@ -59,20 +59,25 @@ can be added to the smaller graph.
 
 Check [our paper](https://openreview.net/forum?id=n5hO5seROB) for
 details of the DiffPaSS and DiffPaSS-IPA algorithms. Briefly, the main
-ingredients are as follows: 1. Using “soft” scores that differentiably
-extend information-theoretic scores between two paired multiple sequence
-alignments (MSAs), or scores based on sequence similarity or graph
-similarity measures. 2. The (truncated) Sinkhorn operator for smoothly
-parametrizing “soft permutations”, and the matching operator for
-parametrizing real permutations [\[Mena et al,
-2018\]](https://openreview.net/forum?id=Byt3oJ-0W). 3. A novel and
-efficient bootstrap technique, motivated by mathematical results and
-heuristic insights into this smooth optimization process. See the
-animation below for an illustration. 4. A notion of “robust pairs” that
-can be used to identify pairs that are consistently found throughout a
-DiffPaSS bootstrap. These pairs can be used as ground truths in another
-DiffPaSS run, giving rise to the DiffPaSS-Iterative Pairing Algorithm
-(DiffPaSS-IPA).
+ingredients are as follows:
+
+1.  Using “soft” scores that differentiably extend information-theoretic
+    scores between two paired multiple sequence alignments (MSAs), or
+    scores based on sequence similarity or graph similarity measures.
+
+2.  The (truncated) Sinkhorn operator for smoothly parametrizing “soft
+    permutations”, and the matching operator for parametrizing real
+    permutations [\[Mena et al,
+    2018\]](https://openreview.net/forum?id=Byt3oJ-0W).
+
+3.  A novel and efficient bootstrap technique, motivated by mathematical
+    results and heuristic insights into this smooth optimization
+    process. See the animation below for an illustration.
+
+4.  A notion of “robust pairs” that can be used to identify pairs that
+    are consistently found throughout a DiffPaSS bootstrap. These pairs
+    can be used as ground truths in another DiffPaSS run, giving rise to
+    the DiffPaSS-Iterative Pairing Algorithm (DiffPaSS-IPA).
 
 <p>
 <video src="https://github.com/Bitbol-Lab/DiffPaSS/assets/46537483/e411fe8c-2fed-4723-a25c-ff69a1abccec" width="432" height="243" controls>
