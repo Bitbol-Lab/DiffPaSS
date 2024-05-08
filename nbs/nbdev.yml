@@ -2,8 +2,8 @@ project:
   output-dir: _docs
 
 website:
-  title: "DiffPASS"
-  site-url: "https://Bitbol-Lab.github.io/DiffPASS"
-  description: "Differentiable Pairing using Alignment-based Soft Scores"
+  title: "DiffPaSS"
+  site-url: "https://Bitbol-Lab.github.io/DiffPaSS"
+  description: "Differentiable Pairing using Soft Scores"
   repo-branch: main
-  repo-url: "https://github.com/Bitbol-Lab/DiffPASS"
+  repo-url: "https://github.com/Bitbol-Lab/DiffPaSS"

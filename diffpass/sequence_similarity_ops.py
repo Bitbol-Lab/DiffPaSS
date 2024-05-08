@@ -82,7 +82,8 @@ def soft_best_hits(
     tau: Union[float, torch.Tensor] = 0.1,
 ) -> torch.Tensor:
     """Soft reciprocal best hits graphs from pairwise similarities.
-    `similarities` must have shape (..., N, N)."""
+    `similarities` must have shape (..., N, N). The main diagonal is
+    excluded by setting its entries to minus infinity before softmax."""
     best_hits = torch.empty_like(similarities)
     inf_diag = torch.zeros(
         similarities.shape[-2:],
@@ -108,7 +109,8 @@ def hard_best_hits(
     group_slices: Sequence[slice],
 ) -> torch.Tensor:
     """Hard reciprocal best hits graphs from pairwise similarities.
-    `similarities` must have shape (..., N, N)."""
+    `similarities` must have shape (..., N, N). The main diagonal is
+    excluded by setting its entries to minus infinity before argmax."""
     best_hits = torch.zeros_like(similarities, requires_grad=False)
     inf_diag = torch.zeros(
         similarities.shape[-2:],
