@@ -15,9 +15,13 @@ following: given two multiple sequence alignments (MSAs) A and B,
 containing interacting biological sequences, find the optimal one-to-one
 pairing between the sequences in A and B.
 
-![](media/MSA_pairing_problem.svg) *Pairing problem for two multiple
-sequence alignments, where pairings are restricted to be within the same
-species*
+<figure>
+<img src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/MSA_pairing_problem.svg" alt="MSA pairing problem" />
+<figcaption>
+Pairing problem for two multiple sequence alignments, where pairings are
+restricted to be within the same species
+</figcaption>
+</figure>
 
 To find an optimal pairing, we can maximize the average mutual
 information between columns of the two paired MSAs
@@ -79,11 +83,13 @@ ingredients are as follows:
     can be used as ground truths in another DiffPaSS run, giving rise to
     the DiffPaSS-Iterative Pairing Algorithm (DiffPaSS-IPA).
 
-<p>
-<video src="https://github.com/Bitbol-Lab/DiffPaSS/assets/46537483/e411fe8c-2fed-4723-a25c-ff69a1abccec" width="432" height="243" controls>
+<figure>
+<video src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/DiffPaSS_bootstrap.mp4" width="432" height="243" controls>
 </video>
-<em>The DiffPaSS bootstrap technique and robust pairs</em>
-</p>
+<figcaption>
+The DiffPaSS bootstrap technique and robust pairs
+</figcaption>
+</figure>
 
 ## Installation
 
@@ -98,9 +104,7 @@ python -m pip install diffpass
 
 ### From source
 
-Clone this repository on your local machine by running and move inside
-the root folder. We recommend creating and activating a dedicated conda
-or virtualenv Python virtual environment.
+Clone this repository on your local machine by running
 
 ``` sh
 git clone git@github.com:Bitbol-Lab/DiffPaSS.git
@@ -114,13 +118,122 @@ editable install of the package:
 python -m pip install -e .
 ```
 
+## Quickstart
+
+### Input data preprocessing
+
+First, parse your multiple sequence alignments (MSAs) in FASTA format
+into a list of tuples `(header, sequence)` using
+[`read_msa`](https://Bitbol-Lab.github.io/DiffPaSS/msa_parsing.html#read_msa).
+
+``` python
+from diffpass.msa_parsing import read_msa
+
+# Parse and one-hot encode the MSAs
+msa_data_A = read_msa("path/to/msa_A.fasta")
+msa_data_B = read_msa("path/to/msa_B.fasta")
+```
+
+We assume that the MSAs contain species information in the headers,
+which will be used to restrict the pairings to be within the same
+species (more generally, “groups”). We need a simple function to extract
+the species information from the headers. For instance, if the headers
+are in the format `>sequence_id|species_name|...`, we can use:
+
+``` python
+def species_name_func(header):
+    return header.split("|")[1]
+```
+
+This function will be used to group the sequences by species:
+
+``` python
+from diffpass.data_utils import create_groupwise_seq_records
+
+msa_data_A_species_by_species = create_groupwise_seq_records(msa_data_A, species_name_func)
+msa_data_B_species_by_species = create_groupwise_seq_records(msa_data_B, species_name_func)
+```
+
+If one of the MSAs contains sequences from species not present in the
+other MSA, we can remove these species from both MSAs:
+
+``` python
+from diffpass.data_utils import remove_groups_not_in_both
+
+msa_data_A_species_by_species, msa_data_B_species_by_species = remove_groups_not_in_both(
+    msa_data_A_species_by_species, msa_data_B_species_by_species
+)
+```
+
+If there are species with different numbers of sequences in the two
+MSAs, we can add dummy sequences to the smaller species to make the
+number of sequences equal. For example, we can add dummy sequences
+consisting entirely of gap symbols:
+
+``` python
+from diffpass.data_utils import pad_msas_with_dummy_sequences
+
+msa_data_A_species_by_species_padded, msa_data_B_species_by_species_padded = pad_msas_with_dummy_sequences(
+    msa_data_A_species_by_species, msa_data_B_species_by_species
+)
+
+species = list(msa_data_A_species_by_species_padded.keys())
+species_sizes = list(map(len, msa_data_A_species_by_species_padded.values()))
+```
+
+Next, one-hot encode the MSAs using the
+[`one_hot_encode_msa`](https://Bitbol-Lab.github.io/DiffPaSS/data_utils.html#one_hot_encode_msa)
+function.
+
+``` python
+from diffpass.data_utils import one_hot_encode_msa
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Unpack the padded MSAs into a list of records
+msa_data_A_for_pairing = [record for records_this_species in msa_data_A_species_by_species_padded.values() for record in records_this_species]
+msa_data_B_for_pairing = [record for records_this_species in msa_data_B_species_by_species_padded.values() for record in records_this_species]
+
+# One-hot encode the MSAs and load them to a device
+msa_A_oh = one_hot_encode_msa(msa_data_A_for_pairing, device=device)
+msa_B_oh = one_hot_encode_msa(msa_data_B_for_pairing, device=device)
+```
+
+### Pairing optimization
+
+Finally, we can instantiate an
+[`InformationPairing`](https://Bitbol-Lab.github.io/DiffPaSS/train.html#informationpairing)
+object and optimize the mutual information between the paired MSAs using
+the DiffPaSS bootstrap algorithm. The results are stored in a
+[`DiffPaSSResults`](https://Bitbol-Lab.github.io/DiffPaSS/base.html#diffpassresults)
+container. The lists of (hard) losses and permutations found can be
+accessed as attributes of the container.
+
+``` python
+from diffpass.train import InformationPairing
+
+information_pairing = InformationPairing(group_sizes=species_sizes).to(device)
+bootstrap_results = information_pairing.fit_bootstrap(x, y)
+
+print(f"Final hard loss: {bootstrap_results.hard_losses[-1].item()}")
+print(f"Final hard permutations (one permutation per species): {bootstrap_results.hard_perms[-1][-1].item()}")
+```
+
+For more details and examples, including the DiffPaSS-IPA variant, see
+the tutorials.
+
 ## Tutorials
 
 See the
-[`mutual_information_msa_pairing.ipynb`](https://github.com/Bitbol-Lab/DiffPaSS/blob/main/mutual_information_msa_pairing.ipynb)
+[`mutual_information_msa_pairing.ipynb`](https://github.com/Bitbol-Lab/DiffPaSS/blob/main/nbs/tutorials/mutual_information_msa_pairing.ipynb)
 notebook for an example of paired MSA optimization in the case of
 well-known prokaryotic datasets, for which ground truth pairings are
 given by genome proximity.
+
+## Documentation
+
+The full documentation is available at
+[https://Bitbol-Lab.github.io/DiffPaSS/](https://bitbol-lab.github.io/DiffPaSS/).
 
 ## Citation
 
