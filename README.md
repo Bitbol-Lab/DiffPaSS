@@ -16,7 +16,7 @@ containing interacting biological sequences, find the optimal one-to-one
 pairing between the sequences in A and B.
 
 <figure>
-<img src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/MSA_pairing_problem.svg" width="640" height="201.6" alt="MSA pairing problem" />
+<img src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/MSA_pairing_problem.svg" alt="MSA pairing problem" />
 <figcaption>
 Pairing problem for two multiple sequence alignments, where pairings are
 restricted to be within the same species
@@ -84,7 +84,7 @@ ingredients are as follows:
     the DiffPaSS-Iterative Pairing Algorithm (DiffPaSS-IPA).
 
 <figure>
-<video src="https://github.com/Bitbol-Lab/DiffPaSS/assets/46537483/e411fe8c-2fed-4723-a25c-ff69a1abccec" width="640" height="360" controls>
+<video src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/DiffPaSS_bootstrap.mp4" width="432" height="243" controls>
 </video>
 <figcaption>
 The DiffPaSS bootstrap technique and robust pairs
@@ -129,9 +129,9 @@ into a list of tuples `(header, sequence)` using
 ``` python
 from diffpass.msa_parsing import read_msa
 
-# Parse the MSAs into lists of tuples (header, sequence)
-msa_A = read_msa("path/to/msa_A.fasta")
-msa_B = read_msa("path/to/msa_B.fasta")
+# Parse and one-hot encode the MSAs
+msa_data_A = read_msa("path/to/msa_A.fasta")
+msa_data_B = read_msa("path/to/msa_B.fasta")
 ```
 
 We assume that the MSAs contain species information in the headers,
@@ -150,8 +150,8 @@ This function will be used to group the sequences by species:
 ``` python
 from diffpass.data_utils import create_groupwise_seq_records
 
-msa_A_by_sp = create_groupwise_seq_records(msa_A, species_name_func)
-msa_B_by_sp = create_groupwise_seq_records(msa_B, species_name_func)
+msa_data_A_species_by_species = create_groupwise_seq_records(msa_data_A, species_name_func)
+msa_data_B_species_by_species = create_groupwise_seq_records(msa_data_B, species_name_func)
 ```
 
 If one of the MSAs contains sequences from species not present in the
@@ -160,8 +160,8 @@ other MSA, we can remove these species from both MSAs:
 ``` python
 from diffpass.data_utils import remove_groups_not_in_both
 
-msa_A_by_sp, msa_B_by_sp = remove_groups_not_in_both(
-    msa_A_by_sp, msa_B_by_sp
+msa_data_A_species_by_species, msa_data_B_species_by_species = remove_groups_not_in_both(
+    msa_data_A_species_by_species, msa_data_B_species_by_species
 )
 ```
 
@@ -173,12 +173,12 @@ consisting entirely of gap symbols:
 ``` python
 from diffpass.data_utils import pad_msas_with_dummy_sequences
 
-msa_A_by_sp_pad, msa_B_by_sp_pad = pad_msas_with_dummy_sequences(
-    msa_A_by_sp, msa_B_by_sp
+msa_data_A_species_by_species_padded, msa_data_B_species_by_species_padded = pad_msas_with_dummy_sequences(
+    msa_data_A_species_by_species, msa_data_B_species_by_species
 )
 
-species = list(msa_A_by_sp_pad.keys())
-species_sizes = list(map(len, msa_A_by_sp_pad.values()))
+species = list(msa_data_A_species_by_species_padded.keys())
+species_sizes = list(map(len, msa_data_A_species_by_species_padded.values()))
 ```
 
 Next, one-hot encode the MSAs using the
@@ -191,16 +191,12 @@ from diffpass.data_utils import one_hot_encode_msa
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Unpack the padded MSAs into a list of records
-msa_A_for_pairing = [
-    rec for recs_this_sp in msa_A_by_sp_pad.values() for rec in recs_this_sp
-]
-msa_B_for_pairing = [
-    rec for recs_this_sp in msa_B_by_sp_pad.values() for rec in recs_this_sp
-]
+msa_data_A_for_pairing = [record for records_this_species in msa_data_A_species_by_species_padded.values() for record in records_this_species]
+msa_data_B_for_pairing = [record for records_this_species in msa_data_B_species_by_species_padded.values() for record in records_this_species]
 
 # One-hot encode the MSAs and load them to a device
-msa_A_oh = one_hot_encode_msa(msa_A_for_pairing, device=device)
-msa_B_oh = one_hot_encode_msa(msa_B_for_pairing, device=device)
+msa_A_oh = one_hot_encode_msa(msa_data_A_for_pairing, device=device)
+msa_B_oh = one_hot_encode_msa(msa_data_B_for_pairing, device=device)
 ```
 
 ### Pairing optimization
@@ -208,11 +204,10 @@ msa_B_oh = one_hot_encode_msa(msa_B_for_pairing, device=device)
 Finally, we can instantiate an
 [`InformationPairing`](https://Bitbol-Lab.github.io/DiffPaSS/train.html#informationpairing)
 object and optimize the mutual information between the paired MSAs using
-the DiffPaSS bootstrapped optimization algorithm. The results are stored
-in a
+the DiffPaSS bootstrap algorithm. The results are stored in a
 [`DiffPaSSResults`](https://Bitbol-Lab.github.io/DiffPaSS/base.html#diffpassresults)
-container. The lists of (hard) losses and permutations found during the
-optimization can be accessed as attributes of the container.
+container. The lists of (hard) losses and permutations found can be
+accessed as attributes of the container.
 
 ``` python
 from diffpass.train import InformationPairing

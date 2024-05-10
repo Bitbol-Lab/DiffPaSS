@@ -2,7 +2,7 @@ project:
   output-dir: _docs
 
 website:
-  title: "DiffPaSS"
+  title: "diffpass"
   site-url: "https://Bitbol-Lab.github.io/DiffPaSS"
   description: "Differentiable Pairing using Soft Scores"
   repo-branch: main

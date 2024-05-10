@@ -1,0 +1,17 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - base.ipynb
+      - constants.ipynb
+      - data_utils.ipynb
+      - entropy_ops.ipynb
+      - gumbel_sinkhorn_ops.ipynb
+      - ipa_utils.ipynb
+      - model.ipynb
+      - msa_parsing.ipynb
+      - sequence_similarity_ops.ipynb
+      - train.ipynb
+      - section: tutorials
+        contents:
+          - tutorials/mutual_information_msa_pairing.ipynb

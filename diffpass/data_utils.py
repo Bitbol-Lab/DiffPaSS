@@ -17,7 +17,7 @@ import torch
 
 from .constants import DEFAULT_AA_TO_INT
 
-
+# Type aliases
 SeqRecord = tuple[str, str]
 SeqRecords = list[SeqRecord]
 GroupwiseSeqRecords = dict[str, SeqRecords]
