@@ -37,10 +37,8 @@ GradientDescentList = list  # List indexed by gradient descent iteration
 GroupByGroupList = list  # List indexed by group index
 
 IndexPair = tuple[int, int]  # Pair of indices
-IndexPairsInGroup = Sequence[IndexPair]  # Pairs of indices in a group of sequences
-IndexPairsInGroups = Sequence[
-    IndexPairsInGroup
-]  # Pairs of indices in groups of sequences
+IndexPairsInGroup = list[IndexPair]  # Pairs of indices in a group of sequences
+IndexPairsInGroups = list[IndexPairsInGroup]  # Pairs of indices in groups of sequences
 
 # %% ../nbs/base.ipynb 6
 def dccn(x: torch.Tensor) -> np.ndarray:

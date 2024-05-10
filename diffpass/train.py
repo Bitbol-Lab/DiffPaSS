@@ -29,10 +29,8 @@ from diffpass.model import (
 
 # Type aliases
 IndexPair = tuple[int, int]  # Pair of indices
-IndexPairsInGroup = Sequence[IndexPair]  # Pairs of indices in a group of sequences
-IndexPairsInGroups = Sequence[
-    IndexPairsInGroup
-]  # Pairs of indices in groups of sequences
+IndexPairsInGroup = list[IndexPair]  # Pairs of indices in a group of sequences
+IndexPairsInGroups = list[IndexPairsInGroup]  # Pairs of indices in groups of sequences
 
 # %% ../nbs/train.ipynb 6
 class InformationPairing(DiffPaSSModel):
