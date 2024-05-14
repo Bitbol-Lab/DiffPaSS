@@ -76,14 +76,14 @@ class DiffPaSSResults:
     ]
     # Hard losses
     hard_losses: Union[
-        GradientDescentList[GroupByGroupList[np.ndarray]],
-        BootstrapList[GradientDescentList[GroupByGroupList[np.ndarray]]],
+        GradientDescentList[GroupByGroupList[float]],
+        BootstrapList[GradientDescentList[GroupByGroupList[float]]],
     ]
     # Soft losses
     soft_losses: Optional[
         Union[
-            GradientDescentList[GroupByGroupList[np.ndarray]],
-            BootstrapList[GradientDescentList[GroupByGroupList[np.ndarray]]],
+            GradientDescentList[GroupByGroupList[float]],
+            BootstrapList[GradientDescentList[GroupByGroupList[float]]],
         ]
     ]
 
@@ -318,7 +318,7 @@ class DiffPaSSModel(Module):
                     for perms_this_group in perms
                 ]
             )
-            results.hard_losses.append(dccn(loss))
+            results.hard_losses.append(loss.item())
 
     def _soft_pass(
         self,
@@ -338,10 +338,7 @@ class DiffPaSSModel(Module):
                 [dccn(perms_this_group) for perms_this_group in perms]
             )
         if record_soft_losses:
-            results.soft_losses.append(dccn(loss))
-
-        # Compute total loss
-        loss = loss.sum()
+            results.soft_losses.append(loss.item())
 
         return loss
 
