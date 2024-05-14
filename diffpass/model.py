@@ -58,7 +58,7 @@ class GeneralizedPermutation(Module):
     def __init__(
         self,
         *,
-        group_sizes: Iterable[int],
+        group_sizes: Sequence[int],
         fixed_pairings: Optional[IndexPairsInGroups] = None,
         tau: float = 1.0,
         n_iter: int = 1,
@@ -256,7 +256,7 @@ class MatrixApply(Module):
     """Apply matrices to chunks of a tensor of shape (n_samples, length, alphabet_size)
     and collate the results."""
 
-    def __init__(self, group_sizes: Iterable[int]) -> None:
+    def __init__(self, group_sizes: Sequence[int]) -> None:
         super().__init__()
         self.group_sizes = tuple(s for s in group_sizes)
         self._group_slices = _consecutive_slices_from_sizes(self.group_sizes)
@@ -275,7 +275,7 @@ class PermutationConjugate(Module):
     """Conjugate blocks of a square 2D tensor of shape (n_samples, n_samples) by
     permutation matrices."""
 
-    def __init__(self, group_sizes: Iterable[int]) -> None:
+    def __init__(self, group_sizes: Sequence[int]) -> None:
         super().__init__()
         self.group_sizes = tuple(s for s in group_sizes)
         self._group_slices = _consecutive_slices_from_sizes(self.group_sizes)
@@ -366,7 +366,7 @@ class HammingSimilarities(Module):
     def __init__(
         self,
         *,
-        group_sizes: Optional[Iterable[int]] = None,
+        group_sizes: Optional[Sequence[int]] = None,
         use_dot: bool = True,
         p: Optional[float] = None,
     ) -> None:
@@ -415,7 +415,7 @@ class Blosum62Similarities(Module):
     def __init__(
         self,
         *,
-        group_sizes: Optional[Iterable[int]] = None,
+        group_sizes: Optional[Sequence[int]] = None,
         use_dot: bool = True,
         p: Optional[float] = None,
         use_scoredist: bool = False,
@@ -485,7 +485,7 @@ class BestHits(Module):
         self,
         *,
         reciprocal: bool = True,
-        group_sizes: Optional[Iterable[int]],
+        group_sizes: Optional[Sequence[int]],
         tau: float = 0.1,
         mode: Literal["soft", "hard"] = "soft",
     ) -> None:
@@ -550,7 +550,7 @@ class InterGroupSimilarityLoss(Module):
         *,
         # Number of entries in each group (e.g. species). Groups are assumed to be
         # contiguous in the input similarity matrices
-        group_sizes: Iterable[int],
+        group_sizes: Sequence[int],
         # If not ``None``, custom callable to compute the differentiable score between
         # the flattened and concatenated inter-group blocks of the similarity matrices.
         # Default: dot product
@@ -604,7 +604,7 @@ class IntraGroupSimilarityLoss(Module):
         *,
         # Number of entries in each group (e.g. species). Groups are assumed to be
         # contiguous in the input similarity matrices
-        group_sizes: Optional[Iterable[int]] = None,
+        group_sizes: Optional[Sequence[int]] = None,
         # If not ``None``, custom callable to compute the differentiable score between
         # the flattened and concatenated intra-group blocks of the similarity matrices
         # Default: dot product
