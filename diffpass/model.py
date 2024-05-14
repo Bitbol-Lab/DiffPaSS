@@ -593,7 +593,7 @@ class IntraGroupSimilarityLoss(Module):
     relationships.
 
     Similarity matrices are expected to be square and symmetric. Their diagonal
-    elements are ignored if `exclude_diagonal` is set to True.
+    elements are ignored if `exclude_diagonal` is set to ``True``.
     If `group_sizes` is provided, the loss is computed by comparing the flattened
     and concatenated upper triangular blocks containing intra-group similarities.
     Otherwise, the loss is computed by comparing the upper triangular part of the
