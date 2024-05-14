@@ -542,13 +542,18 @@ class InterGroupSimilarityLoss(Module):
     relationships.
 
     Similarity matrices are expected to be square and symmetric. The loss is computed
-    by comparing the (unrolled and concatenated) upper triangular blocks containing
-    inter-group similarities."""
+    by comparing the (flattened and concatenated) blocks containing inter-group
+    similarities."""
 
     def __init__(
         self,
         *,
+        # Number of entries in each group (e.g. species). Groups are assumed to be
+        # contiguous in the input similarity matrices
         group_sizes: Iterable[int],
+        # If not ``None``, custom callable to compute the differentiable score between
+        # the flattened and concatenated inter-group blocks of the similarity matrices.
+        # Default: dot product
         score_fn: Union[callable, None] = None,
     ) -> None:
         super().__init__()
@@ -588,17 +593,24 @@ class IntraGroupSimilarityLoss(Module):
     relationships.
 
     Similarity matrices are expected to be square and symmetric. Their diagonal
-    elements are ignored.
-    If `group_sizes` is provided, the loss is computed by comparing the (unrolled
-    and concatenated) upper triangular blocks containing intra-group similarities.
+    elements are ignored if `exclude_diagonal` is set to True.
+    If `group_sizes` is provided, the loss is computed by comparing the flattened
+    and concatenated upper triangular blocks containing intra-group similarities.
     Otherwise, the loss is computed by comparing the upper triangular part of the
-    full similarity matrices, excluding the main diagonal."""
+    full similarity matrices."""
 
     def __init__(
         self,
         *,
+        # Number of entries in each group (e.g. species). Groups are assumed to be
+        # contiguous in the input similarity matrices
         group_sizes: Optional[Iterable[int]] = None,
+        # If not ``None``, custom callable to compute the differentiable score between
+        # the flattened and concatenated intra-group blocks of the similarity matrices
+        # Default: dot product
         score_fn: Union[callable, None] = None,
+        # If ``True``, exclude the diagonal elements from the computation
+        exclude_diagonal: bool = True,
     ) -> None:
         super().__init__()
         self.group_sizes = (
@@ -607,15 +619,17 @@ class IntraGroupSimilarityLoss(Module):
         self.score_fn = (
             partial(torch.tensordot, dims=1) if score_fn is None else score_fn
         )
+        self.exclude_diagonal = exclude_diagonal
 
         if self.group_sizes is not None:
             # Boolean mask for the main diagonal blocks corresponding to groups
             diag_blocks_mask = torch.block_diag(
                 *[torch.ones((s, s), dtype=torch.bool) for s in self.group_sizes]
             )
-            # Extract the upper triangular part, excluding the main diagonal
+            # Extract the upper triangular part
             self.register_buffer(
-                "_upper_diag_blocks_mask", torch.triu(diag_blocks_mask, diagonal=1)
+                "_upper_diag_blocks_mask",
+                torch.triu(diag_blocks_mask, diagonal=int(self.exclude_diagonal)),
             )
         else:
             self._upper_diag_blocks_mask = None
@@ -638,7 +652,7 @@ class IntraGroupSimilarityLoss(Module):
                     layout=similarities_x.layout,
                     device=similarities_x.device,
                 ),
-                diagonal=1,
+                diagonal=int(self.exclude_diagonal),
             )
         else:
             mask = self._upper_diag_blocks_mask
