@@ -8,7 +8,7 @@ __all__ = ['INGROUP_IDX_DTYPE', 'BootstrapList', 'GradientDescentList', 'GroupBy
 # Stdlib imports
 from copy import deepcopy
 from typing import Optional, Any, Sequence, Union
-from dataclasses import fields, dataclass
+from dataclasses import fields, dataclass, replace
 
 # Progress bars
 from tqdm import tqdm
@@ -621,6 +621,7 @@ class DiffPaSSModel(Module):
                 break
 
         # Reshape results according to number of iterations performed
+        reshaped_fields = {}
         for field_name in available_fields:
             results_this_field = getattr(results, field_name)
             n_optimized_results_this_field = (
@@ -628,23 +629,22 @@ class DiffPaSSModel(Module):
                 if can_optimize
                 else field_to_length_so_far[field_name]
             )
+            n_unoptimized_results_this_field = (
+                len(results_this_field) - n_optimized_results_this_field
+            )
 
             assert not n_optimized_results_this_field % n_iters_with_optimization
             n_in_each_optimized_iter = (
                 n_optimized_results_this_field // n_iters_with_optimization
             )
-            setattr(
-                results,
-                field_name,
-                [
-                    results_this_field[
-                        j
-                        * n_in_each_optimized_iter : (j + 1)
-                        * n_in_each_optimized_iter
-                    ]
-                    for j in range(n_iters_with_optimization)
+            reshaped_fields[field_name] = [
+                results_this_field[
+                    j * n_in_each_optimized_iter : (j + 1) * n_in_each_optimized_iter
                 ]
-                + [results_this_field[n_optimized_results_this_field:]],
+                for j in range(n_iters_with_optimization)
+            ] + [results_this_field[n_optimized_results_this_field:]] * bool(
+                n_unoptimized_results_this_field
             )
+        results = replace(results, **reshaped_fields)
 
         return results
