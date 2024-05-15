@@ -194,7 +194,7 @@ class GeneralizedPermutation(Module):
         self.mode = "hard"
 
     def _impl_fixed_pairings(self, func: callable) -> callable:
-        """Include fixed matchings in the Gumbel-Sinkhorn or Gumbel-matching operators."""
+        """Include fixed pairings in the Gumbel-Sinkhorn or Gumbel-matching operators."""
 
         def wrapper(gen: Iterator[torch.Tensor]) -> Iterator[torch.Tensor]:
             for s, mat, (row_group, col_group), mask in zip(
