@@ -14,4 +14,5 @@ website:
       - train.ipynb
       - section: tutorials
         contents:
+          - tutorials/graph_alignment.ipynb
           - tutorials/mutual_information_msa_pairing.ipynb
