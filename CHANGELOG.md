@@ -2,6 +2,16 @@
 
 <!-- do not remove -->
 
+## 0.2.0
+
+### New Features
+
+- Allow for running each iteration in a bootstrap multiple times with different fixed pairs ([#9](https://github.com/Bitbol-Lab/DiffPaSS/issues/9))
+  - Implemented with a new `n_repeats` kwarg for `DiffPaSSModel.fit_bootstrap`
+  - By performing several repeats of each bootstrap iteration, we can greedily select the best repeat by hard loss, and use that repeat to select the next set of fixed pairs. This should improve performance in hard cases.
+
+- New tutorial notebook on graph alignment, covering `diffpass.train.GraphAlignment` and using `n_repeats` in `fit_boostrap` ([#11](https://github.com/Bitbol-Lab/DiffPaSS/issues/11))
+
 ## 0.1.1
 
 ### Breaking Changes
