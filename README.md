@@ -120,7 +120,7 @@ python -m pip install -e .
 
 ## Quickstart
 
-### Input data preprocessing
+### Input data preprocessing (MSA pairing)
 
 First, parse your multiple sequence alignments (MSAs) in FASTA format
 into a list of tuples `(header, sequence)` using
@@ -205,21 +205,28 @@ msa_B_oh = one_hot_encode_msa(msa_B_for_pairing, device=device)
 
 ### Pairing optimization
 
-Finally, we can instantiate an
+Finally, we can instantiate a class from `diffpass.train` to find an
+optimal pairing between `x` and `y`. Here, `x` and `y` are MSAs, so we
+can look for a pairing that optimizes the mutual information between `x`
+and `y`. For this, we use
 [`InformationPairing`](https://Bitbol-Lab.github.io/DiffPaSS/train.html#informationpairing)
-object and optimize the mutual information between the paired MSAs using
-the DiffPaSS bootstrapped optimization algorithm. The results are stored
-in a
-[`DiffPaSSResults`](https://Bitbol-Lab.github.io/DiffPaSS/base.html#diffpassresults)
-container. The lists of (hard) losses and permutations found during the
-optimization can be accessed as attributes of the container.
+and the DiffPaSS bootstrapped optimization algorithm. See the tutorials
+below for other examples, including for graph alignment when `x` and `y`
+are weighted adjacency matrices.
 
 ``` python
 from diffpass.train import InformationPairing
 
 information_pairing = InformationPairing(group_sizes=species_sizes).to(device)
 bootstrap_results = information_pairing.fit_bootstrap(x, y)
+```
 
+The results are stored in a
+[`DiffPaSSResults`](https://Bitbol-Lab.github.io/DiffPaSS/base.html#diffpassresults)
+container. The lists of (hard) losses and permutations found during the
+optimization can be accessed as attributes of the container:
+
+``` python
 print(f"Final hard loss: {bootstrap_results.hard_losses[-1].item()}")
 print(f"Final hard permutations (one permutation per species): {bootstrap_results.hard_perms[-1][-1].item()}")
 ```
@@ -229,11 +236,14 @@ the tutorials.
 
 ## Tutorials
 
-See the
-[`mutual_information_msa_pairing.ipynb`](https://github.com/Bitbol-Lab/DiffPaSS/blob/main/nbs/tutorials/mutual_information_msa_pairing.ipynb)
-notebook for an example of paired MSA optimization in the case of
-well-known prokaryotic datasets, for which ground truth pairings are
-given by genome proximity.
+- [`mutual_information_msa_pairing.ipynb`](https://github.com/Bitbol-Lab/DiffPaSS/blob/main/nbs/tutorials/mutual_information_msa_pairing.ipynb):
+  paired MSA optimization using mutual information in the case of
+  well-known prokaryotic datasets, for which ground truth pairings are
+  given by genome proximity.
+- [`graph_alignment.ipynb`](https://github.com/Bitbol-Lab/DiffPaSS/blob/main/nbs/tutorials/graph_alignment.ipynb):
+  general graph alignment using
+  [`diffpass.train.GraphAlignment`](https://Bitbol-Lab.github.io/DiffPaSS/train.html#graphalignment),
+  with an example of aligning two weighted adjacency matrices.
 
 ## Documentation
 
