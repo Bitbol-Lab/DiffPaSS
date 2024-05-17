@@ -259,7 +259,7 @@ To cite this work, please refer to the following publication:
 ``` bibtex
 @inproceedings{
   lupo2024diffpass,
-  title={DiffPa{SS} {\textendash} Differentiable and scalable pairing of biological sequences using soft scores},
+  title={{DiffPaSS} -- {D}ifferentiable and scalable pairing of biological sequences using soft scores},
   author={Umberto Lupo and Damiano Sgarbossa and Martina Milighetti and Anne-Florence Bitbol},
   booktitle={ICLR 2024 Workshop on Generative and Experimental Perspectives for Biomolecular Design},
   year={2024},
