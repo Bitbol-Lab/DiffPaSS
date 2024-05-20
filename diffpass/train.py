@@ -9,9 +9,6 @@ __all__ = ['IndexPair', 'IndexPairsInGroup', 'IndexPairsInGroups', 'InformationP
 from collections.abc import Sequence
 from typing import Optional, Any, Literal
 
-# NumPy
-import numpy as np
-
 # PyTorch
 import torch
 
@@ -32,7 +29,7 @@ IndexPair = tuple[int, int]  # Pair of indices
 IndexPairsInGroup = list[IndexPair]  # Pairs of indices in a group of sequences
 IndexPairsInGroups = list[IndexPairsInGroup]  # Pairs of indices in groups of sequences
 
-# %% ../nbs/train.ipynb 6
+# %% ../nbs/train.ipynb 7
 class InformationPairing(DiffPaSSModel):
     """DiffPaSS model for information-theoretic pairing of multiple sequence alignments (MSAs)."""
 
@@ -97,7 +94,7 @@ class InformationPairing(DiffPaSSModel):
 
         return {"hard": hard_loss_identity_perm, "soft": soft_loss_identity_perm}
 
-# %% ../nbs/train.ipynb 9
+# %% ../nbs/train.ipynb 10
 class BestHitsPairing(DiffPaSSModel):
     """DiffPaSS model for pairing of multiple sequence alignments (MSAs) by aligning their orthology networks, constructed using (reciprocal) best hits ."""
 
@@ -238,7 +235,7 @@ class BestHitsPairing(DiffPaSSModel):
 
         return {"hard": hard_loss_identity_perm, "soft": soft_loss_identity_perm}
 
-# %% ../nbs/train.ipynb 12
+# %% ../nbs/train.ipynb 13
 class MirrortreePairing(DiffPaSSModel):
     """DiffPaSS model for pairing of multiple sequence alignments (MSAs) by aligning their sequence distance networks as in the Mirrortree method."""
 
@@ -339,7 +336,7 @@ class MirrortreePairing(DiffPaSSModel):
 
         return {"hard": hard_loss_identity_perm, "soft": soft_loss_identity_perm}
 
-# %% ../nbs/train.ipynb 15
+# %% ../nbs/train.ipynb 16
 class GraphAlignment(DiffPaSSModel):
     """DiffPaSS model for general graph alignment starting from the weighted adjacency matrices of two graphs."""
 

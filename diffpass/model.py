@@ -10,7 +10,6 @@ __all__ = ['IndexPair', 'IndexPairsInGroup', 'IndexPairsInGroups', 'GeneralizedP
 # Stdlib imports
 from collections.abc import Iterable, Sequence
 from typing import Optional, Union, Iterator, Literal
-from copy import deepcopy
 from warnings import warn
 from functools import partial
 
@@ -20,7 +19,6 @@ import numpy as np
 # PyTorch
 import torch
 from torch.nn import Module, ParameterList, Parameter
-from torch.nn.functional import softmax
 
 # DiffPaSS imports
 from .gumbel_sinkhorn_ops import gumbel_sinkhorn, gumbel_matching
@@ -43,7 +41,7 @@ IndexPair = tuple[int, int]  # Pair of indices
 IndexPairsInGroup = list[IndexPair]  # Pairs of indices in a group of sequences
 IndexPairsInGroups = list[IndexPairsInGroup]  # Pairs of indices in groups of sequences
 
-# %% ../nbs/model.ipynb 6
+# %% ../nbs/model.ipynb 7
 def _consecutive_slices_from_sizes(group_sizes: Optional[Sequence[int]]) -> list[slice]:
     if group_sizes is None:
         return [slice(None)]
@@ -51,7 +49,7 @@ def _consecutive_slices_from_sizes(group_sizes: Optional[Sequence[int]]) -> list
 
     return [slice(start, end) for start, end in zip([0] + cumsum, cumsum)]
 
-# %% ../nbs/model.ipynb 8
+# %% ../nbs/model.ipynb 9
 class GeneralizedPermutation(Module):
     """Generalized permutation layer implementing both soft and hard permutations."""
 
@@ -331,7 +329,7 @@ def apply_hard_permutation_batch_to_similarity(
 
     return torch.gather(x_permuted_rows, -1, index)
 
-# %% ../nbs/model.ipynb 12
+# %% ../nbs/model.ipynb 13
 class TwoBodyEntropyLoss(Module):
     """Differentiable extension of the mean of estimated two-body entropies between
     all pairs of columns from two one-hot encoded tensors."""
@@ -353,7 +351,7 @@ class MILoss(Module):
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return smooth_mean_two_body_entropy(x, y) - smooth_mean_one_body_entropy(x)
 
-# %% ../nbs/model.ipynb 17
+# %% ../nbs/model.ipynb 18
 class HammingSimilarities(Module):
     """Compute Hamming similarities between sequences using differentiable
     operations.
@@ -471,7 +469,7 @@ class Blosum62Similarities(Module):
 
         return out
 
-# %% ../nbs/model.ipynb 22
+# %% ../nbs/model.ipynb 23
 class BestHits(Module):
     """Compute (reciprocal) best hits within and between groups of sequences,
     starting from a similarity matrix.
@@ -536,7 +534,7 @@ class BestHits(Module):
     def forward(self, similarities: torch.Tensor) -> torch.Tensor:
         return self._bh_fn(similarities)
 
-# %% ../nbs/model.ipynb 25
+# %% ../nbs/model.ipynb 26
 class InterGroupSimilarityLoss(Module):
     """Compute a loss that compares similarity matrices restricted to inter-group
     relationships.
