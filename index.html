@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.554">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Differentiable Pairing using Soft Scores">
+
+<title>diffpass - DiffPaSS – Differentiable Pairing using Soft Scores</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="diffpass - DiffPaSS – Differentiable Pairing using Soft Scores">
+<meta property="og:description" content="Differentiable Pairing using Soft Scores">
+<meta property="og:site_name" content="diffpass">
+<meta name="twitter:title" content="diffpass - DiffPaSS – Differentiable Pairing using Soft Scores">
+<meta name="twitter:description" content="Differentiable Pairing using Soft Scores">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">diffpass</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">DiffPaSS – Differentiable Pairing using Soft Scores</a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">DiffPaSS – Differentiable Pairing using Soft Scores</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./base.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">base</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./constants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">constants</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./data_utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">data_utils</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./entropy_ops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">entropy_ops</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./gumbel_sinkhorn_ops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">gumbel_sinkhorn_ops</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ipa_utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ipa_utils</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">model</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./msa_parsing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">msa_parsing</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sequence_similarity_ops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">sequence_similarity_ops</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./train.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">train</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text">tutorials</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tutorials/graph_alignment.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Graph alignment</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tutorials/mutual_information_msa_pairing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Pairing two protein MSAs by maximising mutual information</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a>
+  <ul class="collapse">
+  <li><a href="#pairing-multiple-sequence-alignments-msas" id="toc-pairing-multiple-sequence-alignments-msas" class="nav-link" data-scroll-target="#pairing-multiple-sequence-alignments-msas">Pairing multiple-sequence alignments (MSAs)</a></li>
+  <li><a href="#graph-alignment-and-pairing-unaligned-sequence-collections" id="toc-graph-alignment-and-pairing-unaligned-sequence-collections" class="nav-link" data-scroll-target="#graph-alignment-and-pairing-unaligned-sequence-collections">Graph alignment and pairing unaligned sequence collections</a></li>
+  <li><a href="#can-i-pair-two-collections-with-a-different-number-of-sequences" id="toc-can-i-pair-two-collections-with-a-different-number-of-sequences" class="nav-link" data-scroll-target="#can-i-pair-two-collections-with-a-different-number-of-sequences">Can I pair two collections with a different number of sequences?</a></li>
+  <li><a href="#how-diffpass-works-soft-scores-differentiable-optimization-bootstrap" id="toc-how-diffpass-works-soft-scores-differentiable-optimization-bootstrap" class="nav-link" data-scroll-target="#how-diffpass-works-soft-scores-differentiable-optimization-bootstrap">How DiffPaSS works: soft scores, differentiable optimization, bootstrap</a></li>
+  </ul></li>
+  <li><a href="#installation" id="toc-installation" class="nav-link" data-scroll-target="#installation">Installation</a>
+  <ul class="collapse">
+  <li><a href="#from-pypi" id="toc-from-pypi" class="nav-link" data-scroll-target="#from-pypi">From PyPI</a></li>
+  <li><a href="#from-source" id="toc-from-source" class="nav-link" data-scroll-target="#from-source">From source</a></li>
+  </ul></li>
+  <li><a href="#quickstart" id="toc-quickstart" class="nav-link" data-scroll-target="#quickstart">Quickstart</a>
+  <ul class="collapse">
+  <li><a href="#input-data-preprocessing-msa-pairing" id="toc-input-data-preprocessing-msa-pairing" class="nav-link" data-scroll-target="#input-data-preprocessing-msa-pairing">Input data preprocessing (MSA pairing)</a></li>
+  <li><a href="#pairing-optimization" id="toc-pairing-optimization" class="nav-link" data-scroll-target="#pairing-optimization">Pairing optimization</a></li>
+  </ul></li>
+  <li><a href="#tutorials" id="toc-tutorials" class="nav-link" data-scroll-target="#tutorials">Tutorials</a></li>
+  <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">Documentation</a></li>
+  <li><a href="#citation" id="toc-citation" class="nav-link" data-scroll-target="#citation">Citation</a></li>
+  <li><a href="#nbdev" id="toc-nbdev" class="nav-link" data-scroll-target="#nbdev">nbdev</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/Bitbol-Lab/DiffPaSS/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">DiffPaSS – Differentiable Pairing using Soft Scores</h1>
+</div>
+
+<div>
+  <div class="description">
+    Differentiable Pairing using Soft Scores
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p><img src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/DiffPaSS_logo.svg" width="640" height="320" alt="DiffPaSS logo"></p>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>DiffPaSS is a family of high-performance and scalable PyTorch modules for finding optimal one-to-one pairings between two collections of biological sequences, and for performing general graph alignment.</p>
+<section id="pairing-multiple-sequence-alignments-msas" class="level3">
+<h3 class="anchored" data-anchor-id="pairing-multiple-sequence-alignments-msas">Pairing multiple-sequence alignments (MSAs)</h3>
+<p>A typical example of the problem DiffPaSS is designed to solve is the following: given two multiple sequence alignments (MSAs) A and B, containing interacting biological sequences, find the optimal one-to-one pairing between the sequences in A and B.</p>
+<figure class="figure">
+<img src="https://raw.githubusercontent.com/Bitbol-Lab/DiffPaSS/main/media/MSA_pairing_problem.svg" width="640" height="201.6" alt="MSA pairing problem" class="figure-img">
+<figcaption>
+Pairing problem for two multiple sequence alignments, where pairings are restricted to be within the same species
+</figcaption>
+</figure>
+<p>To find an optimal pairing, we can maximize the average mutual information between columns of the two paired MSAs (<a href="https://Bitbol-Lab.github.io/DiffPaSS/train.html#informationpairing"><code>InformationPairing</code></a>), or we can maximize the similarity between distance-based (<a href="https://Bitbol-Lab.github.io/DiffPaSS/train.html#mirrortreepairing"><code>MirrortreePairing</code></a>) or orthology (<a href="https://Bitbol-Lab.github.io/DiffPaSS/train.html#besthitspairing"><code>BestHitsPairing</code></a>) networks constructed from the two MSAs.</p>
+</section>
+<section id="graph-alignment-and-pairing-unaligned-sequence-collections" class="level3">
+<h3 class="anchored" data-anchor-id="graph-alignment-and-pairing-unaligned-sequence-collections">Graph alignment and pairing unaligned sequence collections</h3>
+<p>DiffPaSS can be used for general graph alignment problems (<a href="https://Bitbol-Lab.github.io/DiffPaSS/train.html#graphalignment"><code>GraphAlignment</code></a>), where the goal is to find the one-to-one pairing between the nodes of two weighted graphs that maximizes the similarity between the two graphs. The user can specify the (dis-)similarity measure to be optimized, as an arbitrary differentiable function of the adjacency matrices of the two graphs.</p>
+<p>Using this capability, DiffPaSS can be used for finding the optimal one-to-one pairing between two unaligned collections of sequences, if weighted graphs are built in advance from the two collections (for example, using the pairwise Levenshtein distance). This is useful when alignments are not available or reliable.</p>
+</section>
+<section id="can-i-pair-two-collections-with-a-different-number-of-sequences" class="level3">
+<h3 class="anchored" data-anchor-id="can-i-pair-two-collections-with-a-different-number-of-sequences">Can I pair two collections with a different number of sequences?</h3>
+<p>DiffPaSS optimizes and returns permutation matrices. Hence, its inputs are required to have the same number of sequences. However, DiffPaSS can be used to pair two collections (e.g.&nbsp;MSAs) containing a different number of sequences, by padding the smaller collection with dummy sequences. For multiple sequence alignments, a simple choice is to add dummy sequences consisting entirely of gap symbols. For general graphs, dummy nodes, connected to the other nodes with arbitrary edge weights, can be added to the smaller graph.</p>
+</section>
+<section id="how-diffpass-works-soft-scores-differentiable-optimization-bootstrap" class="level3">
+<h3 class="anchored" data-anchor-id="how-diffpass-works-soft-scores-differentiable-optimization-bootstrap">How DiffPaSS works: soft scores, differentiable optimization, bootstrap</h3>
+<p>Check <a href="https://openreview.net/forum?id=n5hO5seROB">our paper</a> for details of the DiffPaSS and DiffPaSS-IPA algorithms. Briefly, the main ingredients are as follows:</p>
+<ol type="1">
+<li><p>Using “soft” scores that differentiably extend information-theoretic scores between two paired multiple sequence alignments (MSAs), or scores based on sequence similarity or graph similarity measures.</p></li>
+<li><p>The (truncated) Sinkhorn operator for smoothly parametrizing “soft permutations”, and the matching operator for parametrizing real permutations <a href="https://openreview.net/forum?id=Byt3oJ-0W">[Mena et al, 2018]</a>.</p></li>
+<li><p>A novel and efficient bootstrap technique, motivated by mathematical results and heuristic insights into this smooth optimization process. See the animation below for an illustration.</p></li>
+<li><p>A notion of “robust pairs” that can be used to identify pairs that are consistently found throughout a DiffPaSS bootstrap. These pairs can be used as ground truths in another DiffPaSS run, giving rise to the DiffPaSS-Iterative Pairing Algorithm (DiffPaSS-IPA).</p></li>
+</ol>
+<figure class="figure">
+<video src="https://github.com/Bitbol-Lab/DiffPaSS/assets/46537483/e411fe8c-2fed-4723-a25c-ff69a1abccec" width="640" height="360" controls="">
+</video>
+<figcaption>
+The DiffPaSS bootstrap technique and robust pairs
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="installation" class="level2">
+<h2 class="anchored" data-anchor-id="installation">Installation</h2>
+<section id="from-pypi" class="level3">
+<h3 class="anchored" data-anchor-id="from-pypi">From PyPI</h3>
+<p>DiffPaSS requires Python 3.7 or later. It is available on PyPI and can be installed with <code>pip</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> pip install diffpass</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="from-source" class="level3">
+<h3 class="anchored" data-anchor-id="from-source">From source</h3>
+<p>Clone this repository on your local machine by running</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:Bitbol-Lab/DiffPaSS.git</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>and move inside the root folder. We recommend creating and activating a dedicated conda or virtualenv Python virtual environment. Then, make an editable install of the package:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> pip install <span class="at">-e</span> .</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+</section>
+<section id="quickstart" class="level2">
+<h2 class="anchored" data-anchor-id="quickstart">Quickstart</h2>
+<section id="input-data-preprocessing-msa-pairing" class="level3">
+<h3 class="anchored" data-anchor-id="input-data-preprocessing-msa-pairing">Input data preprocessing (MSA pairing)</h3>
+<p>First, parse your multiple sequence alignments (MSAs) in FASTA format into a list of tuples <code>(header, sequence)</code> using <a href="https://Bitbol-Lab.github.io/DiffPaSS/msa_parsing.html#read_msa"><code>read_msa</code></a>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffpass.msa_parsing <span class="im">import</span> read_msa</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Parse the MSAs into lists of tuples (header, sequence)</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>msa_A <span class="op">=</span> read_msa(<span class="st">"path/to/msa_A.fasta"</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>msa_B <span class="op">=</span> read_msa(<span class="st">"path/to/msa_B.fasta"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>We assume that the MSAs contain species information in the headers, which will be used to restrict the pairings to be within the same species (more generally, “groups”). We need a simple function to extract the species information from the headers. For instance, if the headers are in the format <code>&gt;sequence_id|species_name|...</code>, we can use:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> species_name_func(header):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> header.split(<span class="st">"|"</span>)[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>This function will be used to group the sequences by species:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffpass.data_utils <span class="im">import</span> create_groupwise_seq_records</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>msa_A_by_sp <span class="op">=</span> create_groupwise_seq_records(msa_A, species_name_func)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>msa_B_by_sp <span class="op">=</span> create_groupwise_seq_records(msa_B, species_name_func)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>If one of the MSAs contains sequences from species not present in the other MSA, we can remove these species from both MSAs:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffpass.data_utils <span class="im">import</span> remove_groups_not_in_both</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>msa_A_by_sp, msa_B_by_sp <span class="op">=</span> remove_groups_not_in_both(</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    msa_A_by_sp, msa_B_by_sp</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>If there are species with different numbers of sequences in the two MSAs, we can add dummy sequences to the smaller species to make the number of sequences equal. For example, we can add dummy sequences consisting entirely of gap symbols:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffpass.data_utils <span class="im">import</span> pad_msas_with_dummy_sequences</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>msa_A_by_sp_pad, msa_B_by_sp_pad <span class="op">=</span> pad_msas_with_dummy_sequences(</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    msa_A_by_sp, msa_B_by_sp</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>species <span class="op">=</span> <span class="bu">list</span>(msa_A_by_sp_pad.keys())</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>species_sizes <span class="op">=</span> <span class="bu">list</span>(<span class="bu">map</span>(<span class="bu">len</span>, msa_A_by_sp_pad.values()))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Next, one-hot encode the MSAs using the <a href="https://Bitbol-Lab.github.io/DiffPaSS/data_utils.html#one_hot_encode_msa"><code>one_hot_encode_msa</code></a> function.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffpass.data_utils <span class="im">import</span> one_hot_encode_msa</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> <span class="st">"cuda"</span> <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> <span class="st">"cpu"</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Unpack the padded MSAs into a list of records</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>msa_A_for_pairing <span class="op">=</span> [</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    rec <span class="cf">for</span> recs_this_sp <span class="kw">in</span> msa_A_by_sp_pad.values() <span class="cf">for</span> rec <span class="kw">in</span> recs_this_sp</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>msa_B_for_pairing <span class="op">=</span> [</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    rec <span class="cf">for</span> recs_this_sp <span class="kw">in</span> msa_B_by_sp_pad.values() <span class="cf">for</span> rec <span class="kw">in</span> recs_this_sp</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="co"># One-hot encode the MSAs and load them to a device</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>msa_A_oh <span class="op">=</span> one_hot_encode_msa(msa_A_for_pairing, device<span class="op">=</span>device)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>msa_B_oh <span class="op">=</span> one_hot_encode_msa(msa_B_for_pairing, device<span class="op">=</span>device)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="pairing-optimization" class="level3">
+<h3 class="anchored" data-anchor-id="pairing-optimization">Pairing optimization</h3>
+<p>Finally, we can instantiate a class from <code>diffpass.train</code> to find an optimal pairing between <code>x</code> and <code>y</code>. Here, <code>x</code> and <code>y</code> are MSAs, so we can look for a pairing that optimizes the mutual information between <code>x</code> and <code>y</code>. For this, we use <a href="https://Bitbol-Lab.github.io/DiffPaSS/train.html#informationpairing"><code>InformationPairing</code></a> and the DiffPaSS bootstrapped optimization algorithm. See the tutorials below for other examples, including for graph alignment when <code>x</code> and <code>y</code> are weighted adjacency matrices.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffpass.train <span class="im">import</span> InformationPairing</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>information_pairing <span class="op">=</span> InformationPairing(group_sizes<span class="op">=</span>species_sizes).to(device)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>bootstrap_results <span class="op">=</span> information_pairing.fit_bootstrap(x, y)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>The results are stored in a <a href="https://Bitbol-Lab.github.io/DiffPaSS/base.html#diffpassresults"><code>DiffPaSSResults</code></a> container. The lists of (hard) losses and permutations found during the optimization can be accessed as attributes of the container:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Final hard loss: </span><span class="sc">{</span>bootstrap_results<span class="sc">.</span>hard_losses[<span class="op">-</span><span class="dv">1</span>]<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Final hard permutations (one permutation per species): </span><span class="sc">{</span>bootstrap_results<span class="sc">.</span>hard_perms[<span class="op">-</span><span class="dv">1</span>][<span class="op">-</span><span class="dv">1</span>]<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>For more details and examples, including the DiffPaSS-IPA variant, see the tutorials.</p>
+</section>
+</section>
+<section id="tutorials" class="level2">
+<h2 class="anchored" data-anchor-id="tutorials">Tutorials</h2>
+<ul>
+<li><a href="https://github.com/Bitbol-Lab/DiffPaSS/blob/main/nbs/tutorials/mutual_information_msa_pairing.ipynb"><code>mutual_information_msa_pairing.ipynb</code></a>: paired MSA optimization using mutual information in the case of well-known prokaryotic datasets, for which ground truth pairings are given by genome proximity.</li>
+<li><a href="https://github.com/Bitbol-Lab/DiffPaSS/blob/main/nbs/tutorials/graph_alignment.ipynb"><code>graph_alignment.ipynb</code></a>: general graph alignment using <a href="https://Bitbol-Lab.github.io/DiffPaSS/train.html#graphalignment"><code>diffpass.train.GraphAlignment</code></a>, with an example of aligning two weighted adjacency matrices.</li>
+</ul>
+</section>
+<section id="documentation" class="level2">
+<h2 class="anchored" data-anchor-id="documentation">Documentation</h2>
+<p>The full documentation is available at <a href="https://bitbol-lab.github.io/DiffPaSS/">https://Bitbol-Lab.github.io/DiffPaSS/</a>.</p>
+</section>
+<section id="citation" class="level2">
+<h2 class="anchored" data-anchor-id="citation">Citation</h2>
+<p>To cite this work, please refer to the following publication:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bibtex code-with-copy"><code class="sourceCode bibtex"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="va">@inproceedings</span>{</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="ot">lupo2024diffpass</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">title</span>={{DiffPaSS} -- {D}ifferentiable and scalable pairing of biological sequences using soft scores},</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">author</span>={Umberto Lupo and Damiano Sgarbossa and Martina Milighetti and Anne-Florence Bitbol},</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">booktitle</span>={ICLR 2024 Workshop on Generative and Experimental Perspectives for Biomolecular Design},</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">year</span>={2024},</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">url</span>={https://openreview.net/forum?id=n5hO5seROB}</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="nbdev" class="level2">
+<h2 class="anchored" data-anchor-id="nbdev">nbdev</h2>
+<p>Project developed using <a href="https://nbdev.fast.ai/">nbdev</a>.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/Bitbol-Lab\.github\.io\/DiffPaSS");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/Bitbol-Lab/DiffPaSS/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
